@@ -122,8 +122,8 @@ MkFS        .word   kernel.fs.mkfs
 CheckFS     .word   dummy
 Mount       .word   dummy
 Unmount     .word   dummy
-ReadBlock   .word   dummy
-WriteBlock  .word   dummy
+ReadBlock   .word   kernel.fs.read_block
+WriteBlock  .word   kernel.fs.write_block
             .endn
             
 File        .namespace

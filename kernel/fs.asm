@@ -31,6 +31,8 @@ MKFS        .word   ?
 FORMAT      .word   ?
 MKDIR       .word   ?
 RMDIR       .word   ?
+READ_BLOCK  .word   ?   ; Read from device (IEC: read status channel)
+WRITE_BLOCK .word   ?   ; Write to device (IEC: send command)
             .endv
 
 MAX_ENTRIES = 8
@@ -600,7 +602,7 @@ _out
 rmdir
             jsr     open_common
             bcs     _out
-            
+
           ; Set the command
             lda     #RMDIR
             sta     args.command,y
@@ -612,7 +614,57 @@ rmdir
             lda     kernel.stream.entry.driver,x
             tax
             jsr     kernel.device.dev.send
-            
+
+          ; Return the stream
+            pla
+_out
+            rts
+
+read_block
+    ; Read from device command/status channel (IEC: reads error channel)
+    ; IN:  drive, cookie, buflen
+    ; OUT: event with response data in buf
+
+            jsr     open_common
+            bcs     _out
+
+          ; Set the command
+            lda     #READ_BLOCK
+            sta     args.command,y
+
+          ; Save the stream for later return
+            phx
+
+          ; Queue the command
+            lda     kernel.stream.entry.driver,x
+            tax
+            jsr     kernel.device.dev.send
+
+          ; Return the stream
+            pla
+_out
+            rts
+
+write_block
+    ; Write to device command/status channel (IEC: sends command)
+    ; IN:  drive, cookie, buf, buflen
+    ; OUT: event confirming completion
+
+            jsr     open_common
+            bcs     _out
+
+          ; Set the command
+            lda     #WRITE_BLOCK
+            sta     args.command,y
+
+          ; Save the stream for later return
+            phx
+
+          ; Queue the command
+            lda     kernel.stream.entry.driver,x
+            tax
+            jsr     kernel.device.dev.send
+
           ; Return the stream
             pla
 _out

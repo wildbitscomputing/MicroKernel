@@ -158,6 +158,8 @@ fs_t        .struct
             .union
 format      .dstruct    fs_mkfs_t
 mkfs        .dstruct    fs_mkfs_t
+read_block  .dstruct    fs_block_t
+write_block .dstruct    fs_block_t
             .endu
             .ends
 fs_mkfs_t .struct
@@ -165,6 +167,12 @@ drive       .byte       ?
 cookie      .byte       ?
 label       = args.buf
 label_len   = args.buflen
+            .ends
+fs_block_t  .struct     ; ReadBlock / WriteBlock (IEC: status/command channel)
+drive       .byte       ?
+cookie      .byte       ?
+buf         = args.buf      ; Data buffer (command to send or response received)
+buflen      = args.buflen   ; Buffer length
             .ends
     
           ; File Calls
