@@ -49,6 +49,9 @@ init
             jsr     clock.init
             jsr     delay.init
 
+          ; Initialize CWD paths
+            jsr     kernel.cwd_init
+
           ; Initialize the kernel's devices.
             jsr     fs.init
             jsr     net.init
