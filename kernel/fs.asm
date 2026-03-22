@@ -212,10 +212,10 @@ open_common
             jmp     import_data
 
 _default
-            stz     kernel.dest+0
-            lda     args.buf,y
+            stz     kernel.dest+0       ; write null byte to buffer
+            lda     args.buf,y          ; (empty path = use CWD)
             sta     kernel.dest+1
-            lda     #'/'
+            lda     #0
             sta     (kernel.dest)
             lda     #1
             sta     args.requested,y
