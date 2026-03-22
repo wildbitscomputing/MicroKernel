@@ -50,14 +50,16 @@ init								; *** IMPORTANT -> If there is no LCD and if passes the Tests, the m
 
 									; Tests have been passed and so we may proceed
 
-			;lda     #$00
-			;sta     LCD_CTRL_REG	; We don't really a reset, it is already happened.						
-			;jsr 	WAIT_100ms
-			lda     #LCD_RST | LCD_BL
-			sta     LCD_CTRL_REG			
+			; Release reset but keep backlight OFF during drawing
+			lda     #LCD_RST
+			sta     LCD_CTRL_REG
 
 			jsr 	LCD_1_69_Init			; Go Init the LCD
-			jsr 	Splash_LCD_Download		; Go Get the SPI Flash Data and Feed the Display
+			jsr 	Splash_RLE_Display		; Display RLE-compressed splash screen
+
+			; Turn on backlight after image is ready
+			lda     #LCD_RST | LCD_BL
+			sta     LCD_CTRL_REG
 
 init_No_Splash:
 			rts
@@ -177,6 +179,128 @@ LCD_Init_CMD_E0_SEQ   	.text $F0, $00, $04, $04, $04, $05, $29, $33, $3E, $38, $
 LCD_Init_CMD_E1_SEQ   	.text $F0, $07, $0A, $0D, $0B, $07, $28, $33, $3E, $36, $14, $14, $29, $32
 
 
+; ================================
+; Palette-based RLE splash display
+; ================================
+; Displays the palette-based RLE-compressed splash screen data to the LCD.
+; Uses zero page locations:
+;   $80/$81 - 16-bit pointer to current position in RLE data
+;   $82/$83 - 16-bit pointer to end of RLE data
+;   $84 - temporary for pixel count
+;
+Splash_RLE_Display:
+            ; Setup the LCD window (240x270)
+            ; 2A Command (Window X): XS=0, XE=239
+            lda     #$2A
+            sta     LCD_CMD_CMD
+            lda     #$00        ; XStart_High
+            sta     LCD_CMD_DTA
+            lda     #$00        ; XStart_Low
+            sta     LCD_CMD_DTA
+            lda     #$00        ; XEnd_High
+            sta     LCD_CMD_DTA
+            lda     #$EF        ; XEnd_Low (239)
+            sta     LCD_CMD_DTA
+
+            ; 2B Command (Window Y): YS=0, YE=319 (320 rows, matches original)
+            lda     #$2B
+            sta     LCD_CMD_CMD
+            lda     #$00        ; YStart_High
+            sta     LCD_CMD_DTA
+            lda     #$00        ; YStart_Low (0)
+            sta     LCD_CMD_DTA
+            lda     #$01        ; YEnd_High (319 = $13F)
+            sta     LCD_CMD_DTA
+            lda     #$3F        ; YEnd_Low
+            sta     LCD_CMD_DTA
+
+            ; 2C Command - Start pixel data transfer
+            lda     #$2C
+            sta     LCD_CMD_CMD
+
+            ; Initialize pointer to RLE data
+            lda     #<splash_rle_data
+            sta     $80
+            lda     #>splash_rle_data
+            sta     $81
+            ; Store end pointer
+            lda     #<splash_rle_end
+            sta     $82
+            lda     #>splash_rle_end
+            sta     $83
+
+_rle_loop:
+            ; Check if we've reached the end of data
+            lda     $81
+            cmp     $83
+            bne     _rle_decode
+            lda     $80
+            cmp     $82
+            bne     _rle_decode
+            rts                 ; Done!
+
+_rle_decode:
+            ; Read control byte
+            lda     ($80)
+            jsr     _inc_ptr
+            tax                 ; Save control byte in X and set flags
+            bmi     _rle_run    ; High bit set = RLE run
+
+            ; Literal mode: X = count of literal color indices
+            txa
+            sta     $84         ; Save count
+            beq     _rle_loop   ; Skip if count is 0
+
+_literal_loop:
+            lda     ($80)       ; Read color index
+            jsr     _inc_ptr
+            jsr     _output_color
+            dec     $84
+            bne     _literal_loop
+            bra     _rle_loop
+
+_rle_run:
+            ; Run mode: (A & 0x7F) + 1 = repeat count
+            and     #$7F
+            clc
+            adc     #1          ; count = (A & 0x7F) + 1
+            sta     $84         ; Save count
+
+            ; Read the color index to repeat
+            lda     ($80)       ; Read color index
+            jsr     _inc_ptr
+            tax                 ; Save color index in X
+
+_run_loop:
+            txa                 ; Get color index
+            jsr     _output_color
+            dec     $84
+            bne     _run_loop
+            bra     _rle_loop
+
+; Output a pixel from palette
+; Input: A = color index (0-5)
+_output_color:
+            asl     a           ; Multiply by 2 (2 bytes per palette entry)
+            tay
+            lda     splash_palette,y
+            sta     LCD_PIX_LO
+            lda     splash_palette+1,y
+            sta     LCD_PIX_HI
+            rts
+
+; Increment 16-bit pointer at $80/$81
+_inc_ptr:
+            inc     $80
+            bne     _inc_ptr_done
+            inc     $81
+_inc_ptr_done:
+            rts
+
+
+; ================================
+; Old FLASH-based splash display (kept for reference)
+; ================================
 Splash_LCD_Download:
 ; The Data on the FLASH for the LCD is made of a BMP File (2 Bytes 565 Encoded) but the file doesn't have a header, so the file needs to be read inverted
             ; Setup the LCD Windows to go Write into - In this case it is the whole Memory (240x320)
@@ -361,8 +485,14 @@ wait_inner: nop
 
             ply
             plx
-            rts			
+            rts
 
             .send
+
+; Include RLE-compressed splash screen data in fat32_code section
+            .section    fat32_code
+            .include "splash_rle.inc"
+            .send
+
             .endn
             .endn
