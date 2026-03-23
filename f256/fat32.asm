@@ -52,6 +52,8 @@ dir_close   .fill   3
 
 dir_mkdir   .fill   3
 dir_rmdir   .fill   3
+
+dir_chdir   .fill   3
             .endn
             .endv                   
 
@@ -626,9 +628,26 @@ open_dir
         sta     kernel.stream.entry.state,x
 
       ; Open_dir
+      ; Check if buffer starts with null (empty path = use CWD).
         jsr     terminate_dir
         lda     kernel.fs.args.buf,y
+        pha                     ; save page for set_ptr
+        sta     fname+1
+        stz     fname+0
+        lda     (fname)         ; read first byte of path
+        beq     _use_cwd
+      ; Non-empty path: pass to FAT32 library
+        pla
         call    fat.set_ptr
+        bra     _do_open
+_use_cwd
+      ; Empty path: clear fat32_ptr so library uses CWD
+        pla                     ; discard page
+        inc     mmu_ctrl
+        stz     $1a             ; fat32_ptr (ZP $1A in FAT32 library space)
+        stz     $1b
+        dec     mmu_ctrl
+_do_open
         call    fat.dir_open
         bcc     _context
 
@@ -868,14 +887,13 @@ _done       tya
 
 copy_details
 
-          ; Mount the source
+          ; Mount the source at dirent.attributes (name + $100)
             lda     fat.dirent+0
-            clc
-            adc     #5  ; attrs(1) + start(4)
             sta     kernel.src+0
             lda     fat.dirent+1
-            adc     #1  ; skip the name
-            adc     #$60    ; $2k there, $8k here.
+            inc     a               ; skip the 256-byte name
+            clc
+            adc     #$60            ; $2k there, $8k here.
             sta     kernel.src+1
 
           ; Mount the dest
@@ -888,7 +906,22 @@ copy_details
           ; the event queue needs access to user RAM.
             lda     #7  ; fat32 ram block
             sta     mmu+4
-                    
+
+          ; Read FAT32 attributes byte and store in event flags
+            phy
+            ldy     #0
+            lda     (kernel.src),y  ; dirent.attributes
+            ply
+            sta     kernel.event.entry.directory.file.flags,y
+
+          ; Advance source to size field: skip attrs(1) + start(4)
+            lda     kernel.src+0
+            clc
+            adc     #5
+            sta     kernel.src+0
+            bcc     +
+            inc     kernel.src+1
++
           ; Round up the size
             phy
             ldy     #0
