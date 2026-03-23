@@ -60,6 +60,8 @@ used:   .res    1
         jmp     fat32_mkdir
         jmp     fat32_rmdir
 
+        jmp     fat32_chdir
+
 get_error:
         lda     fat32_errno
         rts

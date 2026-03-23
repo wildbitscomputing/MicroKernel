@@ -52,6 +52,8 @@ dir_close   .fill   3
 
 dir_mkdir   .fill   3
 dir_rmdir   .fill   3
+
+dir_chdir   .fill   3
             .endn
             .endv                   
 
