@@ -89,7 +89,7 @@ _loop       sta     channels,x
 
           ; Wait before enabling IEC operations.
             stz     awake
-            lda     #5
+            lda     #1
             jsr     kernel.clock.insert
 
             phy
@@ -269,7 +269,7 @@ dev_send
 _go
         ldx     kernel.fs.args.command,y
         jmp     (_ops,x)
-_ops            
+_ops
         .word   open
         .word   open_dir
         .word   open_new
@@ -284,6 +284,8 @@ _ops
         .word   format
         .word   mkdir
         .word   rmdir
+        .word   read_block
+        .word   write_block
         
 seek
 _err
@@ -1473,6 +1475,140 @@ _out
         txa
         jsr     kernel.stream.free
         jmp     kernel.event.enque
+
+read_block
+    ; Read from IEC device status/error channel (channel 15)
+    ; Y->event, X->stream
+    ; Returns status string in event buffer
+
+            ldx     kernel.fs.args.stream,y
+
+          ; Mount the buffer for writing
+            jsr     mount_buf
+
+          ; Save the max buffer size
+            lda     kernel.fs.args.requested,y
+            sta     requested
+
+          ; TALK to the device
+            lda     kernel.stream.entry.device,x
+            jsr     platform.iec.TALK
+            bcs     _err
+
+          ; Request data from the command/status channel (15)
+            lda     #$0f
+            jsr     platform.iec.DEV_SEND
+            bcs     _close
+
+          ; Read bytes into buffer until EOI
+            phy
+            ldy     #0
+_loop
+            jsr     platform.iec.IECIN
+            bcs     _read_done
+            sta     (kernel.dest),y
+            iny
+            cpy     requested               ; Don't overflow buffer
+            beq     _read_done
+            bvc     _loop                   ; Continue until EOI
+
+_read_done
+          ; Save the count
+            tya
+            ply
+            sta     kernel.event.entry.file.data.read,y
+
+_close
+          ; Close the TALK session
+            php
+            lda     kernel.stream.entry.device,x
+            jsr     platform.iec.UNTALK
+            plp
+            bcs     _err
+
+          ; Send success event
+            lda     #kernel.event.fs.DATA
+            bra     _send
+
+_err
+            lda     #kernel.event.fs.ERROR
+_send
+            sta     kernel.event.entry.type,y
+
+          ; Free the stream and queue the event
+            txa
+            jsr     kernel.stream.free
+            jmp     kernel.event.enque
+
+
+write_block
+    ; Write command to IEC device command channel (channel 15)
+    ; Y->event, X->stream
+    ; Sends command string from event buffer
+
+            ldx     kernel.fs.args.stream,y
+
+          ; Mount the buffer for reading
+            jsr     mount_buf
+
+          ; Save the byte count to send
+            lda     kernel.fs.args.requested,y
+            sta     requested
+
+          ; LISTEN to the device
+            lda     kernel.stream.entry.device,x
+            jsr     platform.iec.LISTEN
+            bcs     _err
+
+          ; Open the command channel (15)
+            lda     #$0f
+            jsr     platform.iec.OPEN
+            bcs     _err
+
+          ; Send bytes from buffer
+            lda     requested
+            beq     _unlisten               ; Nothing to send
+            phy
+            ldy     #0
+_wloop
+            lda     (kernel.dest),y
+            jsr     platform.iec.IECOUT
+            bcs     _write_err
+            iny
+            cpy     requested
+            bne     _wloop
+
+          ; Save bytes written
+            tya
+            ply
+            sta     kernel.event.entry.file.wrote.wrote,y
+            bra     _unlisten
+
+_write_err
+            ply
+
+_unlisten
+          ; Close the LISTEN session
+            jsr     platform.iec.UNLISTEN
+            bcs     _err
+
+          ; Command was sent successfully
+          ; Note: Don't read status here - drive may be busy processing.
+          ; Caller can use ReadBlock to check status separately.
+
+          ; Send success event
+            lda     #kernel.event.fs.WROTE
+            bra     _send
+
+_err
+            lda     #kernel.event.fs.ERROR
+_send
+            sta     kernel.event.entry.type,y
+
+          ; Free the stream and queue the event
+            txa
+            jsr     kernel.stream.free
+            jmp     kernel.event.enque
 
         .send
         .endn
