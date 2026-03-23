@@ -93,3 +93,6 @@ fat32.bin: fat32
 
 run: jr.bin
 	foenixmgr binary jr.bin --address 0x10000
+
+flash: jr.bin
+	foenixmgr flash-bulk update.csv
