@@ -1289,6 +1289,7 @@ mount:
 
 	; Root cluster
 	set32 cur_volume + fs::rootdir_cluster, sector_buffer + 44
+	set32 cur_volume + fs::cwd_cluster, sector_buffer + 44
 
 	; Calculate LBA of first FAT
 	add32_16 cur_volume + fs::lba_fat, cur_volume + fs::lba_partition, sector_buffer + 14

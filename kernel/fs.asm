@@ -215,7 +215,7 @@ _default
             stz     kernel.dest+0
             lda     args.buf,y
             sta     kernel.dest+1
-            lda     #'/'
+            lda     #0
             sta     (kernel.dest)
             lda     #1
             sta     args.requested,y
