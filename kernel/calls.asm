@@ -521,10 +521,7 @@ _done
         clc
         rts
 
-; ---------------------------------------------------------------
 ; CWD helper: call into the FAT32 library
-; Same as hardware.fat32.call but available in this scope.
-; ---------------------------------------------------------------
 fat_call    .macro  name
             phx
             phy
@@ -535,13 +532,9 @@ fat_call    .macro  name
             plx
             .endm
 
-; ---------------------------------------------------------------
 ; cwd_init
 ;
 ; Initialize CWD paths for all drives to "/".
-; Called during kernel boot (from kernel.init).
-; Must be called in kernel mode (mmu_ctrl=0).
-; ---------------------------------------------------------------
 cwd_init
         phx
         ; Zero all CWD buffers using two 128-byte passes
@@ -562,7 +555,6 @@ _drive  lda     #'/'
         plx
         rts
 
-; ---------------------------------------------------------------
 ; cwd_get_ptr
 ;
 ; Set args.ptr to point to the CWD buffer for drive A.
@@ -570,7 +562,6 @@ _drive  lda     #'/'
 ; OUT: args.ptr set to cwd_paths + A * CWD_BUF_SIZE
 ;      (Must be in kernel mode to dereference)
 ; Preserves X, Y.
-; ---------------------------------------------------------------
 cwd_get_ptr
         ; Multiply A by CWD_BUF_SIZE (64).
         ; A * 64 = A << 6.
@@ -591,7 +582,6 @@ cwd_get_ptr
         sta     args.ptr+1
         rts
 
-; ---------------------------------------------------------------
 ; chdir
 ;
 ; Dual-purpose chdir/getcwd call at $FF1C.
@@ -600,7 +590,6 @@ cwd_get_ptr
 ;
 ; Uses args.directory.open.drive for drive selection.
 ; Returns carry clear on success, carry set on error.
-; ---------------------------------------------------------------
 chdir
         phx
         phy
@@ -635,13 +624,11 @@ _restore
         plx
         rts
 
-; ---------------------------------------------------------------
 ; chdir_do_chdir
 ;
 ; Internal chdir implementation. Runs in kernel mode.
 ; Args read via $2000+ mirror (kernel mode).
 ; Returns carry clear on success, carry set on error.
-; ---------------------------------------------------------------
 chdir_do_chdir
       ; Validate drive number (already saved in cwd_tmp by caller)
         ldx     cwd_tmp
@@ -736,7 +723,6 @@ chdir_free_ctx
         sec
         rts
 
-; ---------------------------------------------------------------
 ; chdir_update_cwd
 ;
 ; Update the stored CWD string for the given drive after a
@@ -745,11 +731,6 @@ chdir_free_ctx
 ; IN:  A = drive number
 ;      cwd_tmp2 = page number containing the user's path
 ;      (path is null-terminated in the kernel page)
-;
-; Runs in kernel mode. Uses kernel.dest as source pointer
-; (path) and args.ptr as dest pointer (CWD buffer).
-; cwd_tmp is used as the CWD write position throughout.
-; ---------------------------------------------------------------
 chdir_update_cwd
         phx
 
@@ -934,21 +915,11 @@ _set_root
         plx
         rts
 
-; ---------------------------------------------------------------
 ; chdir_do_getcwd
 ;
 ; Copy the stored CWD string for the given drive to the user's
 ; buffer and set buflen.
-; Runs in kernel mode. Returns carry clear on success.
-; ---------------------------------------------------------------
 chdir_do_getcwd
-      ; Drive already in cwd_tmp. We're in kernel mode.
-      ; Copy CWD string from kernel memory to user's buffer.
-      ;
-      ; Strategy: write the $C0xx alias pointer into the USER's
-      ; args.ptr via $2000+ mirror. Then switch to user mode with
-      ; io_ctrl=4 so kernel memory is readable at $C000+.
-
         ldx     cwd_tmp
         cpx     #CWD_NUM_DRIVES
         bcc     _drive_ok
