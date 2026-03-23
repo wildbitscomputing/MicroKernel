@@ -868,14 +868,13 @@ _done       tya
 
 copy_details
 
-          ; Mount the source
+          ; Mount the source at dirent.attributes (name + $100)
             lda     fat.dirent+0
-            clc
-            adc     #5  ; attrs(1) + start(4)
             sta     kernel.src+0
             lda     fat.dirent+1
-            adc     #1  ; skip the name
-            adc     #$60    ; $2k there, $8k here.
+            inc     a               ; skip the 256-byte name
+            clc
+            adc     #$60            ; $2k there, $8k here.
             sta     kernel.src+1
 
           ; Mount the dest
@@ -888,7 +887,22 @@ copy_details
           ; the event queue needs access to user RAM.
             lda     #7  ; fat32 ram block
             sta     mmu+4
-                    
+
+          ; Read FAT32 attributes byte and store in event flags
+            phy
+            ldy     #0
+            lda     (kernel.src),y  ; dirent.attributes
+            ply
+            sta     kernel.event.entry.directory.file.flags,y
+
+          ; Advance source to size field: skip attrs(1) + start(4)
+            lda     kernel.src+0
+            clc
+            adc     #5
+            sta     kernel.src+0
+            bcc     +
+            inc     kernel.src+1
++
           ; Round up the size
             phy
             ldy     #0
