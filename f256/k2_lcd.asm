@@ -1,18 +1,14 @@
 ; This file is part of the TinyCore MicroKernel for the Foenix F256K2.
 ; Copyright 2024 <stef@c256foenix.com>.
 
-            .cpu    "65816"
+            .cpu    "w65c02"
 
             .namespace  platform
 k2lcd       .namespace
 
-            .section    dp
-
-            .send
-
             .section    kmem
-
-            .send            
+rows_remaining .word   ?
+            .send
 
             ;.section    kernel
             .section    global
@@ -20,53 +16,50 @@ k2lcd       .namespace
 ; F256K2 Splash LCD
 LCD_CMD_CMD             = $DD40    ;Write Command Here
 LCD_RST                 = $10      ; 0 to Reset (RSTn)
-LCD_BL                  = $20      ; 1 = ON, 0 = OFF 
+LCD_BL                  = $20      ; 1 = ON, 0 = OFF
 ; Read Only
-LCD_TE                  = $40      ; Tear Enable 
+LCD_TE                  = $40      ; Tear Enable
 LCD_CMD_DTA             = $DD41    ;Write Data (For Command) Here
 ; Always Write in Pairs, otherwise the State Machine will Lock
 LCD_PIX_LO              = $DD42    ; {G[2:0], B[4:0]}
 LCD_PIX_HI              = $DD43    ; {R[4:0], G[5:3]}
-LCD_CTRL_REG            = $DD44 
-; On all new product there is a SPI Flash on board that hold Splash Screen Bootup Graphics! ;)
-; THe SPI FLASH can only be read. (No circuit to go write, at least not now)
-SPLASH_FLASH_SPI_CTRL   = $DD60
-SPLASH_FLASH_SPI_CMD    = $DD61
-SPLASH_FLASH_SPI_SIZLo  = $DD62
-SPLASH_FLASH_SPI_SIZHi  = $DD63
-SPLASH_FLASH_SPI_AD_Lo  = $DD64
-SPLASH_FLASH_SPI_AD_Mi  = $DD65
-SPLASH_FLASH_SPI_AD_Hi  = $DD66
-SPLASH_FIFO_DATA_IN     = $DD68
+LCD_CTRL_REG            = $DD44
+
+LCD_WIDTH               = 240
+LCD_HEIGHT              = 320
+LCD_BYTES_PER_PIXEL     = 2
+LCD_ROW_SIZE            = LCD_WIDTH * LCD_BYTES_PER_PIXEL
+LCD_LAST_ROW            = platform.spi_flash.layout.LCD_RASTER.end - LCD_ROW_SIZE + 1
+
+.cerror LCD_ROW_SIZE * LCD_HEIGHT != platform.spi_flash.layout.LCD_RASTER.size, "LCD image size does not match the corresponding flash region data"
 
 init								; *** IMPORTANT -> If there is no LCD and if passes the Tests, the machine will hang, you need to have a LCD Installed ***
-			lda     $d6a7			; Check the Machine ID, this needs to be done only for a K2 with Optical Keyboard 
-			and     #$1F        	; Stefany - Make sure to isolate the MID only
-			cmp     #$11        	; Stefany - K2 Optical Keyboard
-			bne 	init_No_Splash	; 
+            jsr     get_board
+            bcs     _out
+            and     #(board_feature.SPI_FLASH | board_feature.LCD)
+            cmp     #(board_feature.SPI_FLASH | board_feature.LCD)
+            bne     _out
 
-	        lda     $ddc1       	; If the Unit is a K2, Then let's figure out which Keyboard is installed
-            bmi     init_No_Splash  ; if the bit[7] is 1, then it is a Traditional Mechanical Keyboard, so it is like a F256K
-
-									; Tests have been passed and so we may proceed
-
-			;lda     #$00
-			;sta     LCD_CTRL_REG	; We don't really a reset, it is already happened.						
-			;jsr 	WAIT_100ms
-			lda     #LCD_RST | LCD_BL
-			sta     LCD_CTRL_REG			
+          ; Release reset but keep backlight OFF during drawing
+            lda     #LCD_RST
+            sta     LCD_CTRL_REG
 
 			jsr 	LCD_1_69_Init			; Go Init the LCD
 			jsr 	Splash_LCD_Download		; Go Get the SPI Flash Data and Feed the Display
+            bcs     _out
 
-init_No_Splash:
+          ; Turn on backlight after image is ready
+            lda     #LCD_RST | LCD_BL
+            sta     LCD_CTRL_REG
+
+_out:
 			rts
 
 LCD_1_69_Init
 			lda 	#$11
             sta 	LCD_CMD_CMD
 			jsr 	WAIT_100ms
-			jsr 	WAIT_100ms	
+			jsr 	WAIT_100ms
 			; 36 Command
 			lda 	#$36	; Viewing Side
             sta 	LCD_CMD_CMD
@@ -139,24 +132,24 @@ LCD_1_69_Init
 			ldx 	#$00
 			lda 	#$E0
             sta 	LCD_CMD_CMD
-Init_CMDE0_Loop:				
+Init_CMDE0_Loop:
 			lda 	LCD_Init_CMD_E0_SEQ, x
 			sta 	LCD_CMD_DTA
-		    inx 	
+		    inx
 			cpx 	#size(LCD_Init_CMD_E0_SEQ)
 			bne 	Init_CMDE0_Loop
-			
+
 			; E1 Command
 			ldx 	#$00
 			lda 	#$E1
             sta 	LCD_CMD_CMD
-Init_CMDE1_Loop:				
+Init_CMDE1_Loop:
 			lda 	LCD_Init_CMD_E1_SEQ, x
 			sta 	LCD_CMD_DTA
-		    inx 	
+		    inx
 			cpx 	#size(LCD_Init_CMD_E1_SEQ)
 			bne 	Init_CMDE1_Loop
-			
+
 			; 21 Command
 			lda 	#$21
             sta 	LCD_CMD_CMD
@@ -164,13 +157,13 @@ Init_CMDE1_Loop:
 			lda 	#$11
             sta 	LCD_CMD_CMD
 			jsr 	WAIT_100ms
-			jsr 	WAIT_100ms		
+			jsr 	WAIT_100ms
 			lda 	#$29
-            sta 	LCD_CMD_CMD	
-			rts 
+            sta 	LCD_CMD_CMD
+			rts
 
 ; Init Sequence with different command
-;LCD_Init_SEQ_CMD		.text $36, $3A, $B2, $B2, $B2, $B2, $B2, $B7, $BB, $C0, $C2, $C3, $C4, $C6, $D0, $D0 
+;LCD_Init_SEQ_CMD		.text $36, $3A, $B2, $B2, $B2, $B2, $B2, $B7, $BB, $C0, $C2, $C3, $C4, $C6, $D0, $D0
 ;LCD_Init_SEQ_DAT		.text $00, $05, $0C, $0C, $00, $33, $33, $35, $35, $2C, $01, $13, $20, $0F, $A4, $A1
 ; Specific Command String of Data for setup $E0, $E1
 LCD_Init_CMD_E0_SEQ   	.text $F0, $00, $04, $04, $04, $05, $29, $33, $3E, $38, $12, $12, $28, $30
@@ -211,124 +204,84 @@ Splash_LCD_Download:
 
 			lda 	#$2C        ; Tell the LCD to expect Data
             sta 	LCD_CMD_CMD
-; $80/$81 Size
-; $82/$83/$84 Address in Flash to get Data
-; $86/$87 Destination
-; $88/$89 Number of Lines (320)
-            ; 240 x 2 (2 bytes per pixel) ($01E0)
-            lda 	#$E0
-            sta 	$80
-            lda 	#$01
-            sta 	$81
-            ; 0x16000 Starting Address in Flash
-            ; We need to go backward
-            ; 0x03B620
-            lda 	#$20
-            sta 	$82
-            lda 	#$B6
-            sta 	$83
-            lda 	#$03
-            sta 	$84
-            ; Number of Lines (320 Lines total - THe display shows only 280)
-            ; However, the Matrix in the Flash is 240x320 ($0140)
-            lda 	#$00
-            sta 	$88
-            sta 	$89
 
-Splash_TRF_Main_Loop
+            ; The raster is stored bottom-up. Start at its last row and walk
+            ; backward one 480-byte row at a time.
+            lda     #<LCD_LAST_ROW
+            sta     platform.spi_flash.src
+            lda     #>LCD_LAST_ROW
+            sta     platform.spi_flash.src+1
+            lda     #((LCD_LAST_ROW >> 16) & $ff)
+            sta     platform.spi_flash.src+2
 
-            jsr 	Splash_LCD_Read_A_Line  ;So Let's go fetch the first line
+            lda     #<LCD_ROW_SIZE
+            sta     platform.spi_flash.count
+            lda     #>LCD_ROW_SIZE
+            sta     platform.spi_flash.count+1
 
-            ;Data has been transfered
-            clc 
-            lda 	$88
-            adc 	#$01
-            sta 	$88
-            bcc 	Splash_LCD_No_C
-            inc 	$89
+            lda     #<LCD_HEIGHT
+            sta     rows_remaining
+            lda     #>LCD_HEIGHT
+            sta     rows_remaining+1
 
-Splash_LCD_No_C:
-            lda 	$88
-            cmp 	#$40
-            bne 	Splash_TRF_Main_Loop
-            lda 	$89
-            cmp 	#$01
-            bne 	Splash_TRF_Main_Loop
+_main_loop:
+            jsr     Splash_LCD_Read_A_Line
+            bcs     _out
+
+            lda     rows_remaining
+            bne     +
+            dec     rows_remaining+1
+          + dec     rows_remaining
+
+            lda     rows_remaining
+            ora     rows_remaining+1
+            beq     _out
+
+            ; Advance to the preceding row in the bottom-up raster
+            sec
+            lda     platform.spi_flash.src
+            sbc     #<LCD_ROW_SIZE
+            sta     platform.spi_flash.src
+
+            lda     platform.spi_flash.src+1
+            sbc     #>LCD_ROW_SIZE
+            sta     platform.spi_flash.src+1
+
+            lda     platform.spi_flash.src+2
+            sbc     #0
+            sta     platform.spi_flash.src+2
+            bra     _main_loop
+
+_out:
             rts
 
 ;; ********************************
 ;; *********** LCD ****************
 ;; ********************************
-; Start Address is @ $016000 - Ends @ $03B800
-;3 B620
 Splash_LCD_Read_A_Line:
-            ; Setup Pointer for Flash Access
-            lda #$03        ; FLash Command $03 READ
-            sta SPLASH_FLASH_SPI_CMD
-            lda $80
-            sta SPLASH_FLASH_SPI_SIZLo
-            lda $81
-            sta SPLASH_FLASH_SPI_SIZHi
-            lda $82    ;
-            sta SPLASH_FLASH_SPI_AD_Lo
-            lda $83
-            sta SPLASH_FLASH_SPI_AD_Mi
-            lda $84
-            sta SPLASH_FLASH_SPI_AD_Hi
-            lda #$01    ; Start Transfer
-            sta SPLASH_FLASH_SPI_CTRL
+          ; Start a row transfer
+            jsr     platform.spi_flash.begin_transfer
+            bcs     _out
 
-            ; I requested 1024 bytes, the FIFO can contain 2048
-Splash_LCD_FIFO_Wait:          
-            lda SPLASH_FLASH_SPI_SIZHi      ; Read FIFO Count Hi
-            cmp #$01
-            bne Splash_LCD_FIFO_Wait        ; Make sure the Count = $1E0 (2x $F0)
+          ; Wait until at least 256 bytes have been queued in the FIFO buffer
+            lda     #1
+            jsr     platform.spi_flash.wait_queued_count_hi
+            ldx     #LCD_WIDTH
 
-; We fetch only 240 Bytes Per Line - So We Fetch 1 Line from the Flash, then Program the LCD, then we do it again 320 times.
-; Buffer $0400
-            ldx #$00
+          ; Copy LCD_WIDTH pixels (LCD_ROW_SIZE bytes) to the LCD while the
+          ; SPI controller continues filling the FIFO. At a 12 MHz CPU clock,
+          ; the producer-to-consumer rate ratio is approximately 5:1.
+          - .platform.spi_flash.get_queued
+            sta     LCD_PIX_LO
+            .platform.spi_flash.get_queued
+            sta     LCD_PIX_HI
+            dex
+            bne     -
 
-FIFO_LCD_Read_LUT:          
-            lda SPLASH_FIFO_DATA_IN
-            sta LCD_PIX_LO
-            lda SPLASH_FIFO_DATA_IN
-            sta LCD_PIX_HI
-            inx 
-            cpx #$F0
-            bne FIFO_LCD_Read_LUT
-
-            lda #$00
-            sta SPLASH_FLASH_SPI_CTRL ;; THis allows the State_machine to go back to IDLE.
-            ; Ho Sweet Math Copro - I Love you so much!             
-            jsr LCD_FIFO_Addy_Add ; Readjust the pointer for the Flash for next Fetching
-            rts
-
-; Let's use the local Math Copro to do the 24Bits For me! I Love Hardware Stuff!
-; Addy Pointer = Actual Addy + 480 (2x 240)
-LCD_FIFO_Addy_Add:
-            lda 	$82
-            sta 	$DE08 ; A[0] 
-            lda 	$83
-            sta 	$DE09 ; A[1]
-            lda 	$84
-            sta 	$DE0A ; A[2]
-            lda 	#$00   
-            sta 	$DE0B ; A[3]
-            ; We are substracting (-480 $FFFF_FE20)
-            lda 	#$20
-            sta 	$DE0C ; B[0]
-            lda 	#$FE
-            sta 	$DE0D ; B[1]
-            lda 	#$FF
-            sta 	$DE0E ; B[2]
-            sta 	$DE0F ; B[3]
-            ; Ho Yeah! Instant Results!
-            lda 	$DE18 ; Results[0]
-            sta 	$82
-            lda 	$DE19 ; Results[1]
-            sta 	$83
-            lda 	$DE1A ; Results[2]
-            sta 	$84
+          ; Return the controller to idle
+            jsr     platform.spi_flash.end_transfer
+            clc
+_out:
             rts
 
 ;
@@ -361,7 +314,7 @@ wait_inner: nop
 
             ply
             plx
-            rts			
+            rts
 
             .send
             .endn
