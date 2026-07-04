@@ -35,7 +35,7 @@ KERNEL	= \
 	kernel/threads.asm \
 	kernel/token.asm \
 	kernel/user.asm \
-	
+
 
 ###### Jr kernel ###################################
 
@@ -52,6 +52,7 @@ Jr	= \
 	f256/jiffy.asm \
 	f256/jr.asm \
 	f256/k2_lcd.asm \
+	f256/k2jr2_spi_flash.asm \
 	f256/kbd_cbm.asm \
 	f256/kbd_f256k.asm \
 	f256/kbd_f256k2.asm \
@@ -67,6 +68,7 @@ Jr	= \
 	hardware/ps2_kbd2.asm \
 	hardware/rtc_bq4802.asm \
 	hardware/slip.asm \
+	hardware/spi_flash.asm \
 	hardware/WM8776.asm \
 
 DATE 	= $(shell date +\"%d/%m/%y\ %H\")

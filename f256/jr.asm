@@ -83,14 +83,14 @@ platform    .namespace
             .section    dp
 irq_io      .byte       ?   ; io_ctrl when an IRQ fires.
 irq_mmu     .byte       ?   ; mmu_ctrl when an IRQ fires.
-            .send            
+            .send
 
             .section    startup     ; The following is ALWAYS at $E000
 signature   .null      "KERNEL"
 magic       .byte       <MAGIC
 paul_date   .null       DATE_STR
             .align      32
-            
+
 hw_reset:
 
         sei
@@ -101,7 +101,7 @@ hw_reset:
         sta     mmu_ctrl
         lda     #$7f
         sta     mmu+7
-        
+
       ; If DIP1 is off, continue with the flash kernel
         stz     io_ctrl
         lda     $d670   ; Read Jr dip switch register.
@@ -119,10 +119,10 @@ _loop   lda     $2000,x
         inx
         cpx     #6
         bne     _loop
-        
+
       ; Signature found, switch to the RAM kernel at $E000
         sty     mmu+7
-        
+
 _start
     ; Below this line, kernels may be different
 
@@ -137,17 +137,17 @@ _start
         stz     io_ctrl
         lda     #$03
         sta     $d6b0
-+      .cpu    "w65c02"        
++      .cpu    "w65c02"
 
       ; Allocate physical slot 6 for our ZP; this will
       ; allow us to create a more typical mapping for
       ; process zero.
         lda     #6
         sta     mmu+0
-        
+
       ; Pre-mount the user process's ZP ($00) at $2000.
         stz     mmu+1
-        
+
       ; fat32 BSS is the RAM under $E000
       ;  lda     #7
       ;  sta     mmu+2
@@ -169,7 +169,7 @@ _start
         sta     mmu+6
 
       ; Copy the map to MMU1
-        ldx     #0      
+        ldx     #0
 _copy   lda     mmu,x           ; Read from MMU0
         ldy     #%10_01_0000    ; edit MMU1
         sty     mmu_ctrl
@@ -179,7 +179,7 @@ _copy   lda     mmu,x           ; Read from MMU0
         inx
         cpx     #8
         bne     _copy
-        
+
       ; Change slot 1 in MMU1 to point to FAT32's RAM.
         ldy     #%10_01_0000    ; edit MMU1
         sty     mmu_ctrl
@@ -200,9 +200,12 @@ _zero   stz     Stack,x
 
       ; Initialize the stack pointer
         ldx     #$ff
-        txs        
+        txs
 
-      ; Initialize the console 
+      ; Initialize the SPI flash so we can read its startup data
+        jsr     spi_flash.init
+
+      ; Initialize the console
         jsr     console.init    ; Can now trash font in $a000
         jsr     console.welcome
         stz     io_ctrl
@@ -213,7 +216,7 @@ _zero   stz     Stack,x
         bne     upload
 
       ; Init LCD (if there is one)
-        jsr     k2lcd.init      ; Go Init the LCD (if it is a K2 Optical Keyboard)
+        jsr     k2lcd.init
 
       ; Init the IRQs and enable
         jsr     irq.init
@@ -233,7 +236,7 @@ _loop       lda     _msg,y
             iny
             bra     _loop
 _out        bra     _out
-_msg        .null   "Upload."  
+_msg        .null   "Upload."
 
 
 hardware_init
@@ -255,12 +258,12 @@ sys_exit:
         inc     a
         sta     $c002
         jmp     sys_exit
-        
+
 yield
         wai
         rts
 
-hw_nmi: 
+hw_nmi:
         pha
         lda     io_ctrl
         pha
@@ -280,7 +283,7 @@ hw_abort:
     ; 816 extension.
         rti
 
-hw_irq:  
+hw_irq:
         pha
         phx
         phy
@@ -295,7 +298,7 @@ hw_swi
       ; Save the io state.
         lda     io_ctrl
         pha
-                
+
         jsr     irq.dispatch            ; May request kernel services.
 
       ; Don't start the kernel service if it's already running.
@@ -319,7 +322,7 @@ hw_rti
 
         pla
         sta     mmu_ctrl
-        
+
         ply
         plx
         pla
@@ -327,33 +330,64 @@ hw_rti
 
 puts        jmp     platform.console.puts
 
-board       .struct     id, codec, k
-mid         .byte       \id
-codec_init  .byte       \codec
-k           .byte       \k
+board_feature .namespace
+SPI_FLASH   = 1 << 0
+LCD         = 1 << 1
+            .endn
+
+board       .struct     id, codec, feat=0, feat_detect=0
+mid             .byte   \id
+codec_init      .byte   \codec
+static_features .byte   \feat
+feature_detect  .word   \feat_detect
 size        .ends
-            
-boards      .dstruct    board, $02,%00000011,$00  ; jr/mmu
-_2          .dstruct    board, $12,%00010011,$01  ; k/mmu
-_3          .dstruct    board, $22,%00011101,$00  ; jr2/mmu
-_4          .dstruct    board, $11,%00011111,$01  ; k2/mmu
-boards_end  = * - boards           
+
+boards      .dstruct    board, $02, %00000011  ; jr/mmu
+_2          .dstruct    board, $12, %00010011  ; k/mmu
+_3          .dstruct    board, $22, %00011101, board_feature.SPI_FLASH ; jr2/mmu
+_4          .dstruct    board, $11, %00011111, board_feature.SPI_FLASH, k2_feature_detect ; k2/mmu
+boards_end  = * - boards
 
 get_board
-    ; OUT: X -> offset in boards table or carry set on error.
+    ; OUT: X -> offset in boards table
+    ;      A -> effective feature mask
+    ;      Carry -> clear on success, set if unknown board
             clc
             ldx     #0
           - lda     boards.mid,x
             eor     $d6a7   ; MID
             and     #$3f
-            beq +
+            beq     _found
             txa
             adc     #board.size
             tax
             cpx     #boards_end
-            bne -                     
-          + rts
+            bne -
+          ; `cpx` sets the Carry for us
+            rts
 
+_found:   ; Check if the board has an associated feature detection procedure
+            lda     boards.feature_detect,x
+            ora     boards.feature_detect+1,x
+            beq +
+
+          ; Jump to the feature detection proc
+            jmp     (boards.feature_detect,x)
+
+          + lda     boards.static_features,x
+            rts
+
+k2_feature_detect
+          ; Load the statically declared features
+            lda     boards.static_features,x
+
+          ; If bit 7 is set, we have a mechanical keyboard and no LCD
+            bit     platform.k2_kbd.OPT_KBD_STAT
+            bmi     +
+            ora     #board_feature.LCD
+
+          + clc
+            rts
 
         .send
         .endn
