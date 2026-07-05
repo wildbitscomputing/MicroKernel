@@ -135,6 +135,19 @@ end_transfer:
             stz     CTRL                    ; clear the CTRL_START bit
             rts
 
+flush:
+          ; Discard all remaining queued bytes; call `end_transfer` first to
+          ; make sure the controller has stopped producing data
+          - lda     CTRL
+            and     #CTRL_STATUS_FIFO_EMPTY
+            bne     _done
+
+            lda     FIFO_OUT
+            bra     -
+
+_done:
+            rts
+
 ; `read_chunk` is a convenience wrapper for copying a chunk of flash data
 ; no larger than `FIFO_SIZE` into a specific memory location
 

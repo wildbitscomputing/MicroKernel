@@ -31,33 +31,66 @@ LCD_RASTER      .dstruct region, $00016000, $0003b7ff
             .endn
 
             .section kmem
-available   .byte ?
+available           .byte ?
+has_machine_info    .byte ?
             .send
 
-            .section    kernel2
+            .section    global
 
 controller  .hardware.spi_flash $dd60, 2048
 
 init:
-            ; Initialize the availability flag
+            ; Initialize the availability & machine info flags
             stz     available
+            stz     has_machine_info
 
             phx
             jsr     get_board
-            bcs     +
+            bcs     _out
             and     #board_feature.SPI_FLASH
-            beq     +
+            beq     _out
 
             inc     available
+
+            .select_region LAYOUT_REVISION
+            jsr     platform.spi_flash.begin_transfer
+            bcs     _out
+
+          ; $ff in LAYOUT_REVISION denotes an uninitialized flash region
+          ; predating the introduction of the machine info block; all future
+          ; revisions are expected to be backward compatible with the current
+          ; layout
+            jsr     platform.spi_flash.get
+            cmp     #$ff
+            beq     +
+            inc     has_machine_info
+
+          + jsr     platform.spi_flash.end_transfer
+
             plx
             clc
             rts
 
-          + plx
+_out:       plx
 _unsupported:
             sec
             rts
 
+; Convenience macro for selecting a predefined flash region as the source of
+; the next transfer, e.g. `.select_region STARTUP_BANNER`
+select_region .macro region
+            lda     #<platform.spi_flash.layout.\region.start
+            sta     platform.spi_flash.src
+            lda     #>platform.spi_flash.layout.\region.start
+            sta     platform.spi_flash.src+1
+            lda     #((platform.spi_flash.layout.\region.start >> 16) & $ff)
+            sta     platform.spi_flash.src+2
+
+            lda     #<platform.spi_flash.layout.\region.size
+            sta     platform.spi_flash.count
+            lda     #>platform.spi_flash.layout.\region.size
+            sta     platform.spi_flash.count+1
+            .endm
 
 begin_transfer:
           ; Forward to the controller implementation if available
@@ -82,6 +115,7 @@ get_queued  .macro
 get                     = controller.get
 wait_queued_count_hi    = controller.wait_queued_count_hi
 end_transfer            = controller.end_transfer
+flush                   = controller.flush
 src                     = controller.src
 count                   = controller.count
 dest                    = controller.dest
