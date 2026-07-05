@@ -23,7 +23,7 @@ line        .word       ?   ; line ptr
             .section    kmem
 mouse_x     .byte       ?
 mouse_y     .byte       ?
-            .send            
+            .send
 
             ;.section    kernel
             .section    global
@@ -56,8 +56,8 @@ mouse
             sta     VKY_TXT_CURSOR_CHAR_REG
 
             lda     #$10
-            sta     VKY_TXT_CURSOR_COLR_REG 
-            
+            sta     VKY_TXT_CURSOR_COLR_REG
+
             lda     mouse_x
             lsr     a
             lsr     a
@@ -86,16 +86,16 @@ mouse_update_x
             .asr
             .asr
             clc
-            adc     mouse_x    
+            adc     mouse_x
             bmi     _zx
             cmp     #80
             bcc     _ok
             lda     #79
-_ok         sta     mouse_x                 
+_ok         sta     mouse_x
             rts
 _zx         lda     #0
             bra     _ok
-            
+
 mouse_update_y
             lda     kernel.event.entry.mouse.delta.y
             .asr
@@ -106,11 +106,11 @@ mouse_update_y
             cmp     #60
             bcc     _ok
             lda     #59
-_ok         sta     mouse_y                 
+_ok         sta     mouse_y
             rts
 _zx         lda     #0
             bra     _ok
-            
+
 spin
             inc     kernel.thread.lock
             lda     $1
@@ -150,7 +150,7 @@ _color      sta     color
             jsr     cls
             ; ldy     #8
             ; ldx     #0
-            ; jsr     gotoxy     
+            ; jsr     gotoxy
             stz     $1
             lda     #10
             sta     mouse_x
@@ -160,43 +160,87 @@ _color      sta     color
 
 welcome:
             jsr     cls
-            jsr     part1
-            jsr     part2
+            jsr     _machine_banner
+            jsr     _kernel_banner
             rts
-            
-part1
-            ldy     #0
-_loop       lda     _msg,y
-            beq     _out
+
+_machine_banner
+          ; Check if the machine has the SPI flash with the banner; if not,
+          ; it's a Foenix machine, show the classic F256 banner
+            lda     platform.spi_flash.available
+            beq     _f256_banner
+
+            lda     platform.spi_flash.has_machine_info
+            beq     _f256_banner
+
+            .platform.spi_flash.select_region STARTUP_BANNER
+            jsr     platform.spi_flash.begin_transfer
+            bcs     _out
+
+          ; Wait until at least 256 bytes have been queued in the FIFO buffer
+            lda     #1
+            jsr     platform.spi_flash.wait_queued_count_hi
+
+          ; Copy the null-terminated banner string to the console
+          - .platform.spi_flash.get_queued
+            beq     +
             jsr     puts
-            iny
-            bra     _loop
-_out    
+            bra     -
+
+          ; Wait for the controller to stop filling the FIFO
+          + jsr     platform.spi_flash.end_transfer
+          ; Flush all the remaining bytes in the region
+            jsr     platform.spi_flash.flush
+_out
             rts
-_msg
+
+_f256_banner
+            lda     #<_f256_msg
+            sta     putstr._str
+            lda     #>_f256_msg
+            sta     putstr._str+1
+            jmp     putstr
+
+_f256_msg
             .text   "Foenix F256 by Stefany Allaire", $0a
             .text   "https://c256foenix.com/",$0a
+            .text   $00
+
+_kernel_banner
+            lda     #<_kernel_msg
+            sta     putstr._str
+            lda     #>_kernel_msg
+            sta     putstr._str+1
+            jmp     putstr
+
+_kernel_msg
             .text   $0a
             .text   "TinyCore MicroKernel", $0a
             .text   "Copyright 2025 Jessie Oberreuter", $0a
-            .text   "Gadget@HackwrenchLabs.com",$0a
-            .text   "F256 Edition built ", DATE_STR
-            .text   $0a, $0a, $00
-            
-part2
+            .text   "Gadget@HackwrenchLabs.com", $0a
+            .text   "Wildbits Edition built ", DATE_STR, $0a
+            .text   $0a
+            .text   "FAT32 library for 65C02", $0a
+            .text   "Copyright 2020 Frank van den Hoef, Michael Steil <mist64@mac.com>", $0a
+            .text   "https://github.com/commanderx16/x16-rom", $0a
+            .byte   $0a, $00
+
+putstr
+          ; Output null-terminated string addressed by `_str`
+            .section dp
+_str        .word ?
+            .send
+
             ldy     #0
-_loop       lda     _msg,y
+_loop       lda     (_str),y
             beq     _out
             jsr     puts
             iny
+            bne     _loop
+            inc     _str+1
             bra     _loop
-_out    
+_out
             rts
-_msg
-            .text   "Fat32 https://github.com/commanderx16/x16-rom", $0a
-            .text   "Copyright 2020 Frank van den Hoef, Michael Steil", $0a
-            .byte   $0a, $0
-
 
 cls
             lda     $1
@@ -214,7 +258,7 @@ cls
             sta     io_ctrl
             lda     color
             jsr     _fill
-            
+
             ldx     #0
             ldy     #0
             jsr     gotoxy
@@ -238,8 +282,8 @@ _loop       sta     (line),y
             dex
             bne     _loop
             rts
-            
-                        
+
+
 gotoxy
             stx     cur_x
             sty     cur_y
@@ -263,7 +307,7 @@ gotoxy
             lda     line+1
             adc     #$c0
             sta     line+1
-            
+
             rts
 
 Mstr_Ctrl_Turn_Off_Sync = 8
@@ -275,7 +319,7 @@ TinyVky_Init:
             pha
 
             stz     io_ctrl
-        
+
           ; Init MASTER_CTRL_REG_L: text mode w/ optional gamma
             ;jsr     platform.dips.read
          lda #0
@@ -291,7 +335,7 @@ _store      sta     MASTER_CTRL_REG_L
             stz     BORDER_COLOR_B
             stz     BORDER_COLOR_G
             stz     BORDER_COLOR_R
-            
+
           ; We'll manage our own cursor
             stz     VKY_TXT_CURSOR_CTRL_REG
 
@@ -306,7 +350,7 @@ _fgloop     lda     _palette,x
             inx
             cpx     #64
             bne     _fgloop
- ;bra _done            
+ ;bra _done
             jsr     init_graphics_palettes
 _done
             clc
@@ -374,7 +418,7 @@ _loop
             ply
             plx
             rts
-            
+
 write_bgra
     ; X = rrrgggbb
     ; A palette entry consists of four consecutive bytes: B, G, R, A.
@@ -441,12 +485,12 @@ _ptr
             .text $00,$00,$00,$00,$00,$00,$00,$00,$01,$55,$55,$55,$01,$00,$00,$00
             .text $00,$00,$00,$00,$00,$00,$00,$00,$01,$55,$55,$01,$00,$00,$00,$00
             .text $00,$00,$00,$00,$00,$00,$00,$00,$00,$01,$01,$00,$00,$00,$00,$00
-            .text $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00                        
-            
-            
+            .text $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00
 
 
-long_move            
+
+
+long_move
             phx
             phy
 
@@ -486,7 +530,7 @@ puts
 .if false
         lda     #$7f
         ldy     cur_x
-        sta     (ptr),y        
+        sta     (ptr),y
 .else
         stz     $1
 
@@ -496,18 +540,18 @@ puts
         lda     cur_y
         sta     VKY_TXT_CURSOR_Y_REG_L
         stz     VKY_TXT_CURSOR_Y_REG_H
- 
+
         lda #$db
         lda #32+128
         sta VKY_TXT_CURSOR_CHAR_REG         ; 160 is 128+32 so inverse space. ($D012)
         lda #28
-        sta VKY_TXT_CURSOR_COLR_REG 
+        sta VKY_TXT_CURSOR_COLR_REG
 
         lda     #Vky_Cursor_Enable | Vky_Cursor_Flash_Rate0 | 8
     lda #0
         sta     VKY_TXT_CURSOR_CTRL_REG
         stz     VKY_TXT_START_ADD_PTR
-.endif        
+.endif
         ply
         sty     io_ctrl
 
@@ -525,16 +569,16 @@ _puts
         cmp     #12
         beq     _cls
         bra     _std
-        
+
 _cls
         jmp     cls
 
-_lf     
+_lf
         ldy     cur_y
         iny
         cpy     #ROWS
         beq     _scroll
-        
+
         sty     cur_y
         lda     ptr
         clc
