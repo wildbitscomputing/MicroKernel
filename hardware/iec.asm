@@ -492,8 +492,7 @@ open_dir
         lda     kernel.fs.args.buf,y
         sta     path+1
         stz     path+0
-        lda     kernel.fs.args.requested,y
-        sta     path_len
+        stz     path_len
 
       ; IEC directories are synthetic files  
       ; TODO: fine for the user to specify a path and/or filter      
@@ -633,13 +632,8 @@ send_name
         jsr     send_cmd_prefix
         bcs     _out
 
-      ; Send the partition ID
-        lda     kernel.stream.entry.partition,x
-        ora     #'0'
-        jsr     platform.iec.IECOUT
-        bcs     _out
-
-      ; Send the path
+      ; Send the path; no partition ID prefix -- devices with
+      ; CWD support (SD2IEC, Meatloaf) treat paths as CWD-relative.
         jsr     send_path_string
 
       ; Send colon (TODO: handle paths)
@@ -693,10 +687,6 @@ _str    .dstruct cmd_str
 send_path_string
         lda     path_len
         beq     _done
-        
-        lda     #'/'
-        jsr     platform.iec.IECOUT
-        bcs     _out
 
         phy
         ldy     #0
