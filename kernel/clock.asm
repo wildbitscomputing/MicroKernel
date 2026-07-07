@@ -89,9 +89,14 @@ _loop
             tay
             beq     _done
             
+          ; Expired iff 'time' is at most 8 ticks in the past.
+          ; (BPL on CMP is a signed test: it also fired for any
+          ; timer more than 127 ticks in the future.)
             lda     seconds
-            cmp     time,y
-            bpl     _call
+            sec
+            sbc     time,y
+            cmp     #8
+            bcc     _call
        
           ; Add back to the list.
 _retry      ldx     next,y
