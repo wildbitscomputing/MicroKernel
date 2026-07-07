@@ -838,7 +838,7 @@ _close
 _out
         ply
         lda     self.status
-        cmp     #0
+        cmp     #1      ; carry set iff status is nonzero
         rts
 
 waste_time rts
