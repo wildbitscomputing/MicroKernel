@@ -26,7 +26,6 @@
 .global fat32_open_dir          ; Open directory with path in fat32_ptr
 .global fat32_read_dirent       ; Read directory entry, result in fat32_dirent
 .global fat32_read_dirent_filtered ; Same as above, but only matching names (fat32_ptr)
-.global fat32_read_dirent_filter_hidden ; Same as above, but only non-hidden files
 .global fat32_find_dirent       ; Find file with path in fat32_ptr in current directory
 
 .global fat32_chdir             ; Change to directory with path in fat32_ptr

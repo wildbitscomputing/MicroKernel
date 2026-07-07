@@ -58,9 +58,7 @@ init
 
           ; Initialize the rest of the hardware.
             jsr     platform.hardware_init
- ldx #$41
- ;jsr kernel.flash.start_rom
- ;bra _log
+
         ; Run the first processes
 
           ; If dip1 is on, try to start a binary in low RAM.
@@ -123,22 +121,6 @@ _loop       jsr     kernel.flash.is_rom
             bne     _loop
             rts
 _found      jmp     kernel.flash.start_rom
-
-
-
-
-
-drain
-; Hack -- drain the keyboard
- ldx #0
-_loop ;jsr cbm.GETIN
- ldy #0
-_lp
- iny
- bne _lp
- inx
- bne _loop 
- rts
 
 
 

@@ -22,14 +22,12 @@ size =      end - Tokens
             
             .section    kmem
 entries     .byte       ?       ; free list
-count       .byte       ?
             .send
-            
+
             .section    kernel
 
 init
             stz     entries
-            stz     count
             lda     #0
 _loop       tay
             jsr     free
@@ -44,14 +42,6 @@ alloc
     ; Y <- next token, or carry set.
     ; Thread safe.
             pha
- phx
- lda count
- tax
- lda #' '
- dec count
- jsr platform.console.poke
- plx 
-
             php
             sei
             ldy     entries
@@ -71,13 +61,6 @@ free
     ; Y = token to free
     ; Thread safe
             pha
- phx
- lda count
- tax
- lda #'x'
- jsr platform.console.poke
- inc count
- plx
             php
             sei
             lda     entries

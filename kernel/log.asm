@@ -178,10 +178,7 @@ print_log
 
 _msg
             lda     entry.string,y
-            jsr     print_string
- rts
-            lda     #$0a
-            jmp     platform.console.puts
+            jmp     print_string
 
 
 print_string
