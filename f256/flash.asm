@@ -285,11 +285,21 @@ _case
             beq     _matched
 _nope
           ; No match, advance to next potential block.
-            txa
+          ; Guard against corrupt headers: a zero block count
+          ; would re-probe the same block forever, and a huge one
+          ; would wrap X and cycle below the search bound.
+            lda     header.block_count+$8000
+            bne     _adv
+            inx
+            sec
+            rts
+_adv        txa
             clc
             adc     header.block_count+$8000
             tax
-            sec
+            bcc     _done
+            ldx     #$ff    ; wrapped; terminate the search
+_done       sec
             rts
 
 list_roms
