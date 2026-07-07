@@ -327,23 +327,20 @@ read
 
           ; Install the data buffer
             jsr     kernel.page.alloc_a
-            bcs     _free2
+            bcs     _free
             sta     args.buf,y
             
           ; Install the extended buffer
             jsr     kernel.page.alloc_a
-            bcs     _free1
+            bcs     _free  ; event.free frees the page in args.buf
             sta     args.ext,y
-            
+
           ; Dispatch
             lda     kernel.stream.entry.driver,x
             tax
-            jmp     kernel.device.dev.send            
+            jmp     kernel.device.dev.send
 
-_free1
-            lda     args.buf,y
-            jsr     kernel.page.free
-_free2
+_free
             jsr     kernel.event.free
             sec
 _out
