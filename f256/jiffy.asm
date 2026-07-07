@@ -229,13 +229,42 @@ receive     .proc
             stz     self.temp
             phx
             phy
-            ldx     #4
 
-            ;cli
+            ; Wait (bounded) for the sender to release CLOCK.
+            ; The timing-critical window only starts when we
+            ; release DATA below, so polling granularity here is
+            ; harmless.  Poll fast for a few ms (the common case),
+            ; then at ~20us for a total of ~1.5s so a dead drive
+            ; cannot hang the machine with IRQs disabled.
             sei
+            ldy     #0
+            ldx     #4
 _wait1      jsr     platform.iec.port.read_CLOCK
-            bcc     _wait1
+            bcs     _ready
+            iny
+            bne     _wait1
+            dex
+            bne     _wait1
 
+            ldx     #0
+            ldy     #0
+_wait2      jsr     platform.iec.port.read_CLOCK
+            bcs     _ready
+            jsr     sleep_20us
+            iny
+            bne     _wait2
+            inx
+            bne     _wait2
+
+            ; Timed out.  DATA is still asserted; the bus is idle.
+            cli
+            ply
+            plx
+            sec
+            rts
+
+_ready
+            ldx     #4
             delay_y 37,84
 
             ;sei
@@ -276,20 +305,10 @@ _jiffy_read
             .port.toggle IEC_SREQ_o
             .endif
             cli
-            bcc     _no_eoi
+            bcc     _shuffle_bits
             ; Set the EOI flag.
             dec     self.rx_eoi
             DBG_CALL debug_last
-            ldy     #67
-            sty     $D6A8
-            stz     $D6A9
-            bra     _shuffle_bits
-_no_eoi
-            adc     #$80
-            sta     $D6A9
-            lsr     a
-            lsr     a
-            sta     $D6A8
 
 _shuffle_bits
             ; reshuffle bits to in the correct order
