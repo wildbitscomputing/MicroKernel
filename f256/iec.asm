@@ -185,6 +185,10 @@ rx_eoi      .fill       0   ; shared with mark
 mark        .byte       ?
 sleep20     .byte       ?
 jiffy       .byte       ?   ; jiffy support (0: no/not tested, <0: jiffy detected)
+slow        .byte       ?   ; <0: suppress JiffyDOS for the current command.
+                            ; The fast protocol corrupts the drive's command-
+                            ; channel state on re-reads (JiffyDOS ROMs never
+                            ; fast-read channel 15), so status reads set this.
 temp        .byte       ?   ; bit assembly
 status      .byte       ?   ; last drive status
             .if IEC_DEBUG
@@ -216,6 +220,7 @@ _iec_init
             pla
             jsr     platform.iec.port.init
             DBG_CALL debug_init
+            stz     self.slow
             jsr     platform.jiffy.init
 
           ; Bail if ATN and SRQ fail to float back up.
@@ -335,6 +340,9 @@ atn_release
             jsr     platform.iec.port.release_CLOCK
             jsr     platform.iec.port.release_DATA
             cli
+
+          ; UNTALK/UNLISTEN ends the command; re-allow JiffyDOS.
+            stz     self.slow
             rts
 
 atn_common
@@ -482,6 +490,8 @@ _loop
             jsr     platform.iec.port.read_ATN
             bcs     _send_bit
             bit     self.jiffy
+            bmi     _send_bit
+            bit     self.slow
             bmi     _send_bit
             jsr     jiffy.detect
 
@@ -789,6 +799,10 @@ clear_status
 
         phy
         tay
+
+      ; Status reads must use the standard protocol.
+        sec
+        ror     self.slow
 
         jsr     TALK
         bcs     _out
