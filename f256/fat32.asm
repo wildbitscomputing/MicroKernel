@@ -313,10 +313,23 @@ _ops
         .word   format
         .word   mkdir
         .word   rmdir
-        
+        .word   read_block
+        .word   write_block
+
 read_delay
     sec
     rts
+
+read_block
+write_block
+    ; Y->event
+    ; Block commands are not supported on this driver.
+        ldx     kernel.fs.args.stream,y
+        lda     #kernel.event.fs.ERROR
+        sta     kernel.event.entry.type,y
+        txa
+        jsr     kernel.stream.free
+        jmp     kernel.event.enque
 
 open
     ; Y->event
@@ -363,9 +376,10 @@ _context
         lda     kernel.stream.entry.channel,x
         call    fat.ctx_free
 _err
+        txa
         jsr     kernel.stream.free
         lda     #kernel.event.file.ERROR
-_send        
+_send
         clc
         sta     kernel.event.entry.type,y
         jmp     kernel.event.enque
@@ -419,10 +433,11 @@ _context
         lda     kernel.stream.entry.channel,x
         call    fat.ctx_free
 _err
+        txa
         jsr     kernel.stream.free
         lda     #kernel.event.file.ERROR
         sec
-_send        
+_send
         sta     kernel.event.entry.type,y
         jmp     kernel.event.enque
 
@@ -541,15 +556,16 @@ seek
           ; Perform the seek
             lda     #fpos       ; ZP offset of seek data
             call    fat.file_seek
+            bcc     _err
 
           ; Send the event
             lda     #kernel.event.file.SEEK
             bra     _send
 
 _err
-            jsr     kernel.stream.free
-            lda     #kernel.event.directory.ERROR
-_send        
+          ; The stream remains open; it is freed on close.
+            lda     #kernel.event.file.ERROR
+_send
           ; Set the type
             sta     kernel.event.entry.type,y
 
@@ -662,9 +678,10 @@ _context
         lda     kernel.stream.entry.channel,x
         call    fat.ctx_free
 _err
+        txa
         jsr     kernel.stream.free
         lda     #kernel.event.directory.ERROR
-_send        
+_send
         clc
         sta     kernel.event.entry.type,y
         jmp     kernel.event.enque
@@ -1038,6 +1055,9 @@ terminate_rename
 mkfs:
 format:
 
+      ; Extract what we need from the arg
+        ldx     kernel.fs.args.stream,y
+
       ; Make sure the device isn't already in use.
         lda     count
         cmp     #1
@@ -1049,28 +1069,28 @@ format:
         lda     $d6a0
         cmp     #$80
         bcs     _err
-            
-      ; Extract what we need from the arg
-        ldx     kernel.fs.args.stream,y
 
       ; Terminate the label
         jsr     terminate_name
-        
+
       ; Mark the device as busy
         jsr     led_on
-            
+
         lda     kernel.fs.args.buf,y
         call    fat.mkfs
-        bcc     _err
+        bcc     _fail
 
       ; Mark the device as no longer busy
         jsr     led_off
-            
+
       ; Send the event
         lda     #kernel.event.fs.CREATED
         sta     kernel.event.entry.type,y
         bra     _out
 
+_fail
+      ; Mark the device as no longer busy
+        jsr     led_off
 _err
         lda     #kernel.event.fs.ERROR
         sta     kernel.event.entry.type,y
@@ -1286,7 +1306,7 @@ rmdir
         lda     kernel.fs.args.buf,y
         call    fat.set_ptr
         call    fat.dir_rmdir
-        bcc     _err
+        bcc     _context
 
       ; Free the context
         lda     kernel.stream.entry.channel,x
