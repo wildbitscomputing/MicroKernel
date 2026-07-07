@@ -515,6 +515,12 @@ sdcard_write_sector:
 	jsr spi_write
 	jsr spi_write
 
+	; Check data response token: xxx0sss1, sss = 010 -> accepted
+	jsr spi_read
+	and #$1F
+	cmp #$05
+	bne @error
+
 	; Success
 	jsr flush
 	jsr deselect
