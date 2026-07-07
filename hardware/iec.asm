@@ -1484,6 +1484,12 @@ read_block
             lda     kernel.fs.args.requested,y
             sta     requested
 
+          ; Status reads must use the standard protocol; the
+          ; JiffyDOS fast read corrupts the drive's channel-15
+          ; state on re-reads.
+            sec
+            ror     platform.iec.self.slow
+
           ; TALK to the device
             lda     kernel.stream.entry.device,x
             jsr     platform.iec.TALK
