@@ -111,15 +111,6 @@ pkt_copy
 .endif        
 
 
-pkt_free
-        lda     mmu_ctrl
-        stz     mmu_ctrl
-        pha
-        jsr     kernel.net.pkt_free
-        pla
-        sta     mmu_ctrl
-        rts
-
 udp_send
    
         phx
@@ -150,18 +141,18 @@ udp_recv
         sty     io_ctrl
         
         ldy     kernel.cur_event+$c000
-        lda     kernel.event.alias.udp.token,y
-        tay
-        
-      ; point kernel.args.src at the source data
+
+      ; point kernel.args.src at the source data.
+      ; The event's buf page holds the raw packet; it is freed
+      ; with the event, so nothing is freed (or leaked) here.
         lda     #28                 ; UDP data offset
         sta     kernel.args.ptr+0   ; LSB
-        lda     kernel.net.packet.buf+$c000,y
+        lda     kernel.event.alias.udp.token,y  ; the packet page
         ora     #$c0                ; Aliased kernel buffer
         sta     kernel.args.ptr+1   ; MSB
 
       ; X = # of bytes to copy.
-        lda     kernel.net.packet.len+$c000,y
+        lda     kernel.event.alias.udp.len,y
         sec
         sbc     #28     ; IP +UDP
         tax             ; # of bytes to copy.
@@ -169,7 +160,7 @@ udp_recv
         bcc     _copy
         beq     _copy
         ldx     kernel.args.net.buflen
-        
+
 _copy
         stx     kernel.args.net.buflen   ; Bytes copied
         txa
@@ -185,8 +176,6 @@ _loop   lda     (kernel.args.ptr),y
         ply
 
 _done
-        jsr     pkt_free    ; TODO: this should be done by next_event
-
       ; Restore and return
         ply
         sty     io_ctrl  

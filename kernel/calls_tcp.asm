@@ -1131,8 +1131,7 @@ _8_fin
           ; our side to continue sending.  For now, at
           ; least, we'll also close.
 
-            lda     #STATE.FIN_WAIT_1
-        lda     #STATE.CLOSED
+            lda     #STATE.CLOSED
             sta     (kernel.args.net.socket),y
 
           ; ACK and close
