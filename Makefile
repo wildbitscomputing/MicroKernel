@@ -77,8 +77,6 @@ COPT 	= -C -Wall -Werror -Wno-shadow -x --verbose-list  --labels=labels.txt
 
 
 jr.bin: Makefile $(Jr) $(KERNEL) fat32.bin
-	(cd fat32; make)
-	cp fat32/fat32.bin .
 	64tass $(COPT) $(filter %.asm, $^) -b -L $(basename $@).lst -o $@ -D DATE_STR=\"$(DATE)\" -D MAGIC=$(MAGIC)
 	dd if=$@ of=3b.bin ibs=8192 obs=8192 skip=0 count=1
 	dd if=$@ of=3c.bin ibs=8192 obs=8192 skip=1 count=1
@@ -89,7 +87,11 @@ jr.bin: Makefile $(Jr) $(KERNEL) fat32.bin
 	cp 3b.bin 3c.bin 3d.bin 3e.bin 3f.bin bin
 
 
-fat32.bin: fat32
+# Depend on the actual sources: depending on the directory alone
+# leaves jr.bin silently stale after edits to files inside it.
+FAT32_SRC = $(wildcard fat32/*.s fat32/*.inc fat32/*.cfg fat32/Makefile)
+
+fat32.bin: $(FAT32_SRC)
 	(cd fat32; make)
 	cp fat32/$@ .
 
