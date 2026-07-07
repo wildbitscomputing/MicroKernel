@@ -91,11 +91,27 @@ _f0
             rts
 
 _ext1
-        ; Map keys prefixed with $e1
+        ; Map keys prefixed with $e1.  Only Pause uses it; the
+        ; full make sequence is e1 14 77 e1 f0 14 f0 77, and the
+        ; $77 bytes must be swallowed or they read as NumLock.
             cmp     #$14
-            bne     _drop
+            beq     _pause
+            cmp     #$77
+            beq     _pause_end
+            bra     _drop
+
+_pause
+          ; Emit the event, but keep the e1 prefix armed so the
+          ; trailing $77 of the sequence is swallowed above.
             lda     #PAUSE
-            bra     _raw
+            jsr     send
+            stz     released
+            rts
+
+_pause_end
+            stz     e1
+            stz     released
+            rts
 
 _ext0
         ; Map keys prefixed with $e0.
@@ -158,7 +174,7 @@ send
             
           ; Set the keyboard ID:
             lda     #1
-            sta     kernel.event.entry.key.keyboard
+            sta     kernel.event.entry.key.keyboard,y
 
           ; Send the event
             jmp     kernel.event.enque
