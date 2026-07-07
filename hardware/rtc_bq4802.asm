@@ -15,6 +15,7 @@ self        .namespace
             .virtual    DevState
 this        .byte   ?   ; Copy of the device address
 flags       .byte   ?   ; Copy of the original rtc flag bits.
+tock        .byte   ?   ; Alternates the +1/+2 centisecond add.
             .endv
             .endn
             
@@ -143,13 +144,17 @@ dev_data
         rts
 
 _tick
-      ; Add 1 (even) or 2 (odd) to the milliseconds
-      ; This will achieve a total of 96 millis/second.
-      ; The seconds alarm will perform the reset.
-      ; Note: millis are in BCD to match the other values.
+      ; Alternately add 1 and 2 to the centiseconds for a total
+      ; of 96 centis/second from the 64Hz tick.  The seconds
+      ; alarm performs the reset.  (Keying the alternation on the
+      ; parity of the counter itself never alternated: even+1 and
+      ; odd+2 are both odd, so it always added 2 -- 128/second.)
+      ; Note: centis are in BCD to match the other values.
+        lda     self.tock,x
+        eor     #1
+        sta     self.tock,x
+        lsr     a               ; carry = toggle
         sed
-        lda     kernel.time.centis
-        lsr     a
         lda     #1
         adc     kernel.time.centis
         sta     kernel.time.centis

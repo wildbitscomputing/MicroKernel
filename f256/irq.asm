@@ -208,8 +208,14 @@ enable:
 
             jsr     map
             eor     #255    ; clear bit to enable source.
+
+          ; The IRQ dispatcher also read-modify-writes this
+          ; register; keep the update atomic.
+            php
+            sei
             and     INT_MASK_REG0,x
             sta     INT_MASK_REG0,x
+            plp
 
             sty     io_ctrl
             ply
@@ -247,13 +253,19 @@ disable:
             stz     io_ctrl
             
             jsr     map
+
+          ; The IRQ dispatcher also read-modify-writes this
+          ; register; keep the update atomic.
+            php
+            sei
             ora     INT_MASK_REG0,x
             sta     INT_MASK_REG0,x
+            plp
 
             sty     io_ctrl
             ply
-            plx          
-        
+            plx
+
 _out        rts
 
 
