@@ -869,14 +869,18 @@ resume
             lda     kernel.stream.entry.device,x
             bcc     _reading
             bcs     _writing
-_reading    
+_reading
             jsr     platform.iec.TALK
+            bcs     _out    ; device vanished; the op will fail cleanly
             lda     kernel.stream.entry.channel,x
             jmp     platform.iec.DEV_SEND
-_writing    
+_writing
             jsr     platform.iec.LISTEN
+            bcs     _out
             lda     kernel.stream.entry.channel,x
             jmp     platform.iec.DEV_RECV
+_out
+            rts
 
 read_delay
     ; Y->args/event

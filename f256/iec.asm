@@ -261,14 +261,41 @@ TALK
 
 TALK_SA
             jsr     atn_common
+            bcs     _err    ; no device on the bus
 
             sei
             jsr     platform.iec.port.assert_DATA
             jsr     platform.iec.port.release_ATN
             jsr     platform.iec.port.release_CLOCK
--           jsr     platform.iec.port.read_CLOCK
-            bcs     -   ; TODO: should time out.
+
+          ; Wait (bounded, ~100ms) for the drive to take the bus
+          ; as talker; a vanished device must not hang the machine.
+            phx
+            phy
+            ldx     #16
+            ldy     #0
+_wait       jsr     platform.iec.port.read_CLOCK
+            bcc     _ok
+            jsr     sleep_20us
+            iny
+            bne     _wait
+            dex
+            bne     _wait
+
+          ; Timed out; release the bus and report the error.
+            jsr     platform.iec.port.release_DATA
+            ply
+            plx
             cli
+_err
+            sec
+            rts
+
+_ok
+            ply
+            plx
+            cli
+            clc
             rts
 
 
