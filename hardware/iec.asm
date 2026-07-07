@@ -288,10 +288,10 @@ _ops
         .word   write_block
         
 seek
-_err
-            jsr     kernel.stream.free
-            lda     #kernel.event.directory.ERROR
-_send        
+    ; Seek is not supported on IEC devices.  Report an
+    ; error; the stream remains open and is freed on close.
+            lda     #kernel.event.file.ERROR
+
           ; Set the type
             sta     kernel.event.entry.type,y
 
