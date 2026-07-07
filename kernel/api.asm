@@ -494,7 +494,8 @@ free        .fill   6   ; blocks used/free
 
           ; Data in net events (major changes coming)
 udp_t       .struct
-token       .byte   ?   ; TODO: break out into fields
+token       .byte   ?   ; Page holding the raw packet.
+len         .byte   ?   ; Raw packet length.
             .ends
 
 tcp_t       .struct

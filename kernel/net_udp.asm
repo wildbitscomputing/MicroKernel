@@ -40,17 +40,36 @@ udp_accept
         beq     _echo
         
 _accept
-        ; Queue and event.
+        ; Queue an event.
         jsr     kernel.event.alloc
         bcs     _drop    ; TODO: beep or something
-            
-        ; TODO: fix
+
         lda     #kernel.event.net.UDP
         sta     kernel.event.entry.type,y
-        lda     pkt
+
+        ; Hand the packet page to the event: event.free then
+        ; reclaims it even if the user never calls udp_recv.
+        ; udp_recv reads the page and length from the event.
+        txa
+        pha
+        ldx     pkt
+        lda     kernel.net.packet.buf,x
+        sta     kernel.event.entry.buf,y
         sta     kernel.event.entry.udp.token,y
-            
-        jmp     kernel.event.enque        
+        lda     kernel.net.packet.len,x
+        sta     kernel.event.entry.udp.len,y
+        pla
+        tax
+
+        ; The packet token itself is no longer needed.
+        tya
+        pha
+        ldy     pkt
+        jsr     kernel.token.free
+        pla
+        tay
+
+        jmp     kernel.event.enque
 _drop
         sec
         rts

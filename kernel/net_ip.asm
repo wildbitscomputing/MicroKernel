@@ -223,6 +223,7 @@ calc_sum
         adc     #1
         lsr     a
         tax
+        beq     _done   ; zero bytes: X=0 would loop 256 times
         lda     #1
         sta     alt+0
         clc

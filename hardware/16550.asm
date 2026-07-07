@@ -308,7 +308,7 @@ rx_pause
         php
         sei
         lda     UART_MCR
-        ora     #MCR_RTS
+        and     #~MCR_RTS & $ff
         sta     UART_MCR
         plp
         clc
