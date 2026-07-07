@@ -26,6 +26,7 @@ sector_lba:
 	.res 1
 
 timeout_cnt:       .byte 0
+init_retries:      .res 2
 
 ; XXX disabled for now; on real hardware, this returns
 ; XXX all 0xFE bytes with all tested SD cards
@@ -295,7 +296,13 @@ sdcard_init:
 	jsr spi_read
 	jsr spi_read
 
-	; Wait for card to leave idle state
+	; Wait for card to leave idle state.  The SD spec allows up
+	; to 1 second; bound the retries so a card that answers but
+	; never becomes ready cannot hang the boot.
+	lda #<1536
+	sta init_retries + 0
+	lda #>1536
+	sta init_retries + 1
 @6:	send_cmd_inline 55, 0
 	bcs @7
 	bra @error
@@ -305,7 +312,16 @@ sdcard_init:
 	bra @error
 @8:
 	cmp #0
-	bne @6
+	beq @9
+	lda init_retries + 0
+	ora init_retries + 1
+	beq @error	; retries exhausted
+	lda init_retries + 0
+	bne @dec
+	dec init_retries + 1
+@dec:	dec init_retries + 0
+	bra @6
+@9:
 
 	; Check CCS bit in OCR register
 	send_cmd_inline 58, 0
