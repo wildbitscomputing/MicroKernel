@@ -84,7 +84,7 @@ _ext
             beq     _zero
 
           ; If ext==buf, we're done, zero the event.
-            cmp     entry.buf
+            cmp     entry.buf,y
             beq     _zero
 
           ; Ext contained a different page; free it.

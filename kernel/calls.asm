@@ -243,16 +243,23 @@ get_time
         sta     io_ctrl
         phy
         ldy     #0
+
+      ; The RTC interrupt updates kernel.time; hold IRQs off
+      ; during the copy so the caller can't see a torn value.
+        php
+        sei
 _loop   lda     kernel.time+$C000,y
         sta     (kernel.args.buf),y
         iny
         cpy     #time_t.size
         bne     _loop
+        plp
+
         ply
         pla
         sta     io_ctrl
         clc
-        rts        
+        rts
 
 next_event
         phx
@@ -320,7 +327,8 @@ read_data
         beq     _done   ; TODO: return zero length copy
 
       ; Copy the data to the user's memory
-        jsr     export_data        
+        jsr     export_data
+        clc     ; success; the docs promise carry clear
 
 _done
         ply
@@ -347,7 +355,8 @@ read_ext
         beq     _done   ; TODO: return zero length copy
 
       ; Copy the data to the user's memory
-        jsr     export_data        
+        jsr     export_data
+        clc     ; success; the docs promise carry clear
 
 _done
         ply
