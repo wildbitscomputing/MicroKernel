@@ -610,6 +610,11 @@ chdir
         stz     mmu_ctrl
         stx     user_mmu
 
+      ; Save the user's I/O page (restored below, as gate does)
+        ldx     io_ctrl
+        phx
+        stz     io_ctrl
+
       ; Read user args via $2000+ mirror (user ZP, now in kernel mode)
         lda     $2000+kernel.args.buflen
         sta     cwd_tmp2                        ; buflen (0=getcwd, >0=chdir)
@@ -628,7 +633,9 @@ _getcwd
         jsr     chdir_do_getcwd
 
 _restore
-      ; Restore user's MMU (carry preserved)
+      ; Restore the user's I/O page and MMU (carry preserved)
+        plx
+        stx     io_ctrl
         ldx     user_mmu
         stx     mmu_ctrl
         ply
@@ -658,6 +665,14 @@ _drive_ok
         sec                     ; device not registered
         rts
 _dev_ok
+      ; Only FAT32-backed drives have a CWD; without this check,
+      ; a chdir on an IEC drive would run against the SD card.
+        lda     kernel.fs.entry.driver,y
+        cmp     hardware.fat32.driver
+        beq     _fs_ok
+        sec
+        rts
+_fs_ok
         lda     kernel.fs.entry.partition,y
 
       ; Allocate a fat32 context
@@ -859,9 +874,9 @@ _do_append
       ; (Root "/" already ends with slash; after ".." to root,
       ; cwd_tmp=0 and we still need a leading slash.)
         ldy     cwd_tmp
+        beq     _add_sep        ; empty = needs leading /
         cpy     #CWD_MAX_LEN
         bcs     _trunc
-        beq     _add_sep        ; empty = needs leading /
         dey
         lda     (args.ptr),y    ; peek at last char
         iny
@@ -983,7 +998,11 @@ _copy   lda     (args.ptr),y        ; read from kernel CWD via $C0xx alias
         lda     #0
         sta     (args.buf),y        ; force null terminate
 _done
-      ; Restore io_ctrl and back to kernel mode
+      ; Report the string length to the caller (we're still on
+      ; the user's ZP, so the args are directly addressable).
+        sty     kernel.args.buflen
+
+      ; Back to kernel mode; chdir's exit restores io_ctrl.
         stz     io_ctrl
         stz     mmu_ctrl
         clc
