@@ -123,7 +123,7 @@ spi_read:
 	lda #$FF	; 2
 	sta SPI_DATA	; 4
 @1:	bit SPI_CTRL	; 4
-	bmi l1		; 2 + 1 if branch
+	bmi @1		; 2 + 1 if branch
 	lda SPI_DATA	; 4
 .endmacro
 
@@ -133,7 +133,6 @@ spi_read:
 ; byte to write in A
 ;-----------------------------------------------------------------------------
 spi_write:
-        jsr debug_write
 	sta SPI_DATA
 @1:	bit SPI_CTRL
 	bmi @1
@@ -145,26 +144,6 @@ spi_write:
 @1:	bit SPI_CTRL
 	bmi @1
 .endmacro
-
-debug_read:
-        pha
-        lda     #'.'
-        jsr     print
-        pla
-        pha
-        jsr     print_hex_byte
-        pla
-        rts
-        
-debug_write:
-        pha
-        lda     #32
-        jsr     print
-        pla
-        pha
-        jsr     print_hex_byte
-        pla
-        rts
 
 ;-----------------------------------------------------------------------------
 ; send_cmd - Send cmdbuf

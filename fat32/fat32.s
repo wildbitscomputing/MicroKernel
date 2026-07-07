@@ -2115,34 +2115,6 @@ fat32_read_dirent_filtered:
 	clc
 	rts
 
-;-----------------------------------------------------------------------------
-; fat32_read_dirent_filter_hidden
-;
-; Returns next dirent that is not a hidden file
-;
-; * c=0: failure; sets errno
-;-----------------------------------------------------------------------------
-fat32_read_dirent_filter_hidden:
-	stz fat32_errno
-
-	jsr fat32_read_dirent
-	bcc @error
-
-	cmp16_z fat32_ptr, @ok
-
-	; Check for hidden attribute (bit 1), but only for non-directories
-	lda fat32_dirent + dirent::attributes
-	bit #$10			; Is it a directory?
-	bne @ok				; Don't filter directories
-	and #$02			; Check hidden bit
-	bne fat32_read_dirent_filter_hidden	; Skip hidden files
-@ok:
-	sec
-	rts
-
-@error:
-	clc
-	rts
 
 ;-----------------------------------------------------------------------------
 ; fat32_chdir
