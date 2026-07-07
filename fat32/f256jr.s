@@ -200,7 +200,7 @@ my_mkfs:
       ; Set the volume ID to the time
         lda     #<fat32_time_day
         sta     fat32_ptr2+0
-        lda     #<fat32_time_day
+        lda     #>fat32_time_day
         sta     fat32_ptr2+1
 
       ; Set the OEM name

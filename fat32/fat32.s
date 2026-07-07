@@ -1595,9 +1595,16 @@ read_dirent:
 	lda (fat32_bufptr), y
 	sta lfn_checksum
 
-	; prepare expected index
+	; prepare expected index; reject ordinals the 20-entry
+	; lfn_buf cannot hold (corrupt directory)
 	lda (fat32_bufptr)
 	and #$1f
+	beq @bad_ordinal
+	cmp #21
+	bcc @ordinal_ok
+@bad_ordinal:
+	jmp @next_entry_clear_lfn_buffer
+@ordinal_ok:
 	sta lfn_index
 	sta lfn_count
 
@@ -2219,8 +2226,10 @@ fat32_rename:
 	rts
 @4:
 
-	; target name
+	; target name; it is a bare name, so clear the path offset
+	; left behind by find_dirent on the source
 	set16 fat32_ptr, fat32_ptr2
+	stz name_offset
 
 	; Find space
 	jsr find_space_for_lfn
@@ -3432,7 +3441,7 @@ fat32_next_sector:
 	bcs @1
 	rts
 @1:
-	add32 cur_context + context::file_offset, cur_context + context::file_offset, 512
+	add32_val cur_context + context::file_offset, cur_context + context::file_offset, 512
 	sec
 	rts
 
