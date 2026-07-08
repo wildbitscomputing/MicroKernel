@@ -682,6 +682,20 @@ _dev_ok
         sec
         rts
 _fs_ok
+      ; Make sure the media is mounted.  Every other filesystem
+      ; call reaches the driver through open_common, whose READY
+      ; query performs the lazy card init; chdir bypasses it, so
+      ; a chdir before the first file operation ran against an
+      ; unmounted volume and silently failed.
+        phy
+        ldx     kernel.fs.entry.driver,y
+        lda     #kernel.device.get.READY
+        jsr     kernel.device.dev.get
+        ply
+        bcc     _mounted
+        sec
+        rts
+_mounted
         lda     kernel.fs.entry.partition,y
 
       ; Allocate a fat32 context
