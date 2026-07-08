@@ -306,8 +306,10 @@ read
             jsr     event.alloc
             bcs     _out
         
-          ; X->stream   ; TODO: verify
+          ; X->stream
             ldx     $2000+kernel.args.file.read.stream
+            jsr     stream_ok
+            bcs     _free
 
           ; Install the command
             lda     #READ
@@ -353,6 +355,8 @@ write
             
           ; X->stream
             ldx     $2000+kernel.args.file.write.stream
+            jsr     stream_ok
+            bcs     _event
 
           ; Install the command
             lda     #WRITE
@@ -401,6 +405,8 @@ seek
             lda     $2000+kernel.args.file.seek.stream
             sta     args.stream,y
             tax
+            jsr     stream_ok
+            bcs     _invalid
 
           ; Install the cookie
             lda     kernel.stream.entry.cookie,x
@@ -419,8 +425,11 @@ seek
           ; Dispatch
             lda     kernel.stream.entry.driver,x
             tax
-            jmp     kernel.device.dev.send            
+            jmp     kernel.device.dev.send
 
+_invalid
+            jsr     kernel.event.free
+            sec
 _out
             rts
 
@@ -456,6 +465,14 @@ close_common
             sta     args.stream,y
             tax
 
+          ; Closing a stale or freed stream succeeds trivially.
+          ; Drivers free the stream when an open fails, but the
+          ; ERROR event still carries the token; clients close it
+          ; and wait for CLOSED.  Dispatching through the freed
+          ; entry's zeroed driver byte was a wild jump.
+            jsr     stream_ok
+            bcs     _closed
+
           ; Install the cookie
             lda     kernel.stream.entry.cookie,x
             sta     args.cookie,y
@@ -463,7 +480,35 @@ close_common
           ; Dispatch
             lda     kernel.stream.entry.driver,x
             tax
-            jmp     kernel.device.dev.send            
+            jmp     kernel.device.dev.send
+
+_closed
+            lda     args.command,y
+            cmp     #CLOSE_DIR
+            beq     _dir
+            lda     #kernel.event.file.CLOSED
+            bra     _send
+_dir
+            lda     #kernel.event.directory.CLOSED
+_send
+            sta     kernel.event.entry.type,y
+            clc
+            jmp     kernel.event.enque
+
+stream_ok
+    ; X = stream token.  Carry clear iff it refers to a live
+    ; stream: tokens are 16-aligned, and stream.free zeroes the
+    ; entry, so live entries always have a non-zero driver.
+            txa
+            and     #$0f
+            bne     _bad
+            lda     kernel.stream.entry.driver,x
+            beq     _bad
+            clc
+            rts
+_bad
+            sec
+            rts
 
 rename
           ; Rename takes two arguments; allocate the second
