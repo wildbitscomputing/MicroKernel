@@ -156,6 +156,11 @@ _color      sta     color
             sta     mouse_x
             sta     mouse_y
             jsr     init_mouse
+
+          ; Re-lock the MMU; hw_reset locked it before calling us,
+          ; and leaving LUT0 editable exposes the live mapping
+          ; registers at $0008-$000F for the rest of the boot.
+            stz     mmu_ctrl
             rts
 
 welcome:
@@ -294,6 +299,7 @@ gotoxy
             asl     a
             rol     line+1
             adc     cur_y
+            rol     line+1  ; y*5 > 255 for y >= 52; keep the carry
             asl     a
             rol     line+1
             asl     a
