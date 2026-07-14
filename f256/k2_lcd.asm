@@ -33,7 +33,7 @@ LCD_LAST_ROW            = platform.spi_flash.layout.LCD_RASTER.end - LCD_ROW_SIZ
 
 .cerror LCD_ROW_SIZE * LCD_HEIGHT != platform.spi_flash.layout.LCD_RASTER.size, "LCD image size does not match the corresponding flash region data"
 
-init								; *** IMPORTANT -> If there is no LCD and if passes the Tests, the machine will hang, you need to have a LCD Installed ***
+init                                ; *** IMPORTANT -> If there is no LCD and if passes the Tests, the machine will hang, you need to have a LCD Installed ***
             jsr     get_board
             bcs     _out
             and     #(board_feature.SPI_FLASH | board_feature.LCD)
@@ -44,8 +44,8 @@ init								; *** IMPORTANT -> If there is no LCD and if passes the Tests, the m
             lda     #LCD_RST
             sta     LCD_CTRL_REG
 
-			jsr 	LCD_1_69_Init			; Go Init the LCD
-			jsr 	Splash_LCD_Download		; Go Get the SPI Flash Data and Feed the Display
+            jsr     LCD_1_69_Init            ; Go Init the LCD
+            jsr     Splash_LCD_Download        ; Go Get the SPI Flash Data and Feed the Display
             bcs     _out
 
           ; Turn on backlight after image is ready
@@ -53,121 +53,121 @@ init								; *** IMPORTANT -> If there is no LCD and if passes the Tests, the m
             sta     LCD_CTRL_REG
 
 _out:
-			rts
+            rts
 
 LCD_1_69_Init
-			lda 	#$11
-            sta 	LCD_CMD_CMD
-			jsr 	WAIT_100ms
-			jsr 	WAIT_100ms
-			; 36 Command
-			lda 	#$36	; Viewing Side
-            sta 	LCD_CMD_CMD
-			lda 	#$00	; Vertical - 70 8 = Invert Color
-			sta 	LCD_CMD_DTA
-			; 3A Command
-			lda 	#$3A
-            sta 	LCD_CMD_CMD
-			lda 	#$05
-			sta 	LCD_CMD_DTA
-			; B2 Command
-			lda 	#$B2
-            sta 	LCD_CMD_CMD
-			lda 	#$0C
-			sta 	LCD_CMD_DTA
-			sta 	LCD_CMD_DTA
-			lda 	#$00
-			sta 	LCD_CMD_DTA
-			lda 	#$33
-			sta 	LCD_CMD_DTA
-			sta 	LCD_CMD_DTA
-			; B7 Command
-			lda 	#$B7
-            sta 	LCD_CMD_CMD
-			lda 	#$35
-			sta 	LCD_CMD_DTA
-			; BB Command
-			lda 	#$BB
-            sta 	LCD_CMD_CMD
-			lda 	#$35
-			sta 	LCD_CMD_DTA
-			; C0 Command
-			lda 	#$C0
-            sta 	LCD_CMD_CMD
-			lda 	#$2C
-			sta 	LCD_CMD_DTA
-			; C2 Command
-			lda 	#$C2
-            sta 	LCD_CMD_CMD
-			lda 	#$01
-			sta 	LCD_CMD_DTA
-			; C3 Command
-			lda 	#$C3
-            sta 	LCD_CMD_CMD
-			lda 	#$13
-			sta 	LCD_CMD_DTA
-			; C4 Command
-			lda 	#$C4
-            sta 	LCD_CMD_CMD
-			lda 	#$20
-			sta 	LCD_CMD_DTA
-			; C6 Command
-			lda 	#$C6
-            sta 	LCD_CMD_CMD
-			lda 	#$0F
-			sta 	LCD_CMD_DTA
-			; D0 Command
-			lda 	#$D0
-            sta 	LCD_CMD_CMD
-			lda 	#$A4
-			sta 	LCD_CMD_DTA
-			lda 	#$A1
-			sta 	LCD_CMD_DTA
-			; D6 Command
-			lda 	#$D0
-            sta 	LCD_CMD_CMD
-			lda 	#$A4
-			sta 	LCD_CMD_DTA
-			; E0 Command
-			ldx 	#$00
-			lda 	#$E0
-            sta 	LCD_CMD_CMD
+            lda     #$11
+            sta     LCD_CMD_CMD
+            jsr     WAIT_100ms
+            jsr     WAIT_100ms
+            ; 36 Command
+            lda     #$36    ; Viewing Side
+            sta     LCD_CMD_CMD
+            lda     #$00    ; Vertical - 70 8 = Invert Color
+            sta     LCD_CMD_DTA
+            ; 3A Command
+            lda     #$3A
+            sta     LCD_CMD_CMD
+            lda     #$05
+            sta     LCD_CMD_DTA
+            ; B2 Command
+            lda     #$B2
+            sta     LCD_CMD_CMD
+            lda     #$0C
+            sta     LCD_CMD_DTA
+            sta     LCD_CMD_DTA
+            lda     #$00
+            sta     LCD_CMD_DTA
+            lda     #$33
+            sta     LCD_CMD_DTA
+            sta     LCD_CMD_DTA
+            ; B7 Command
+            lda     #$B7
+            sta     LCD_CMD_CMD
+            lda     #$35
+            sta     LCD_CMD_DTA
+            ; BB Command
+            lda     #$BB
+            sta     LCD_CMD_CMD
+            lda     #$35
+            sta     LCD_CMD_DTA
+            ; C0 Command
+            lda     #$C0
+            sta     LCD_CMD_CMD
+            lda     #$2C
+            sta     LCD_CMD_DTA
+            ; C2 Command
+            lda     #$C2
+            sta     LCD_CMD_CMD
+            lda     #$01
+            sta     LCD_CMD_DTA
+            ; C3 Command
+            lda     #$C3
+            sta     LCD_CMD_CMD
+            lda     #$13
+            sta     LCD_CMD_DTA
+            ; C4 Command
+            lda     #$C4
+            sta     LCD_CMD_CMD
+            lda     #$20
+            sta     LCD_CMD_DTA
+            ; C6 Command
+            lda     #$C6
+            sta     LCD_CMD_CMD
+            lda     #$0F
+            sta     LCD_CMD_DTA
+            ; D0 Command
+            lda     #$D0
+            sta     LCD_CMD_CMD
+            lda     #$A4
+            sta     LCD_CMD_DTA
+            lda     #$A1
+            sta     LCD_CMD_DTA
+            ; D6 Command
+            lda     #$D0
+            sta     LCD_CMD_CMD
+            lda     #$A4
+            sta     LCD_CMD_DTA
+            ; E0 Command
+            ldx     #$00
+            lda     #$E0
+            sta     LCD_CMD_CMD
 Init_CMDE0_Loop:
-			lda 	LCD_Init_CMD_E0_SEQ, x
-			sta 	LCD_CMD_DTA
-		    inx
-			cpx 	#size(LCD_Init_CMD_E0_SEQ)
-			bne 	Init_CMDE0_Loop
+            lda     LCD_Init_CMD_E0_SEQ, x
+            sta     LCD_CMD_DTA
+            inx
+            cpx     #size(LCD_Init_CMD_E0_SEQ)
+            bne     Init_CMDE0_Loop
 
-			; E1 Command
-			ldx 	#$00
-			lda 	#$E1
-            sta 	LCD_CMD_CMD
+            ; E1 Command
+            ldx     #$00
+            lda     #$E1
+            sta     LCD_CMD_CMD
 Init_CMDE1_Loop:
-			lda 	LCD_Init_CMD_E1_SEQ, x
-			sta 	LCD_CMD_DTA
-		    inx
-			cpx 	#size(LCD_Init_CMD_E1_SEQ)
-			bne 	Init_CMDE1_Loop
+            lda     LCD_Init_CMD_E1_SEQ, x
+            sta     LCD_CMD_DTA
+            inx
+            cpx     #size(LCD_Init_CMD_E1_SEQ)
+            bne     Init_CMDE1_Loop
 
-			; 21 Command
-			lda 	#$21
-            sta 	LCD_CMD_CMD
-			; 11	 Command
-			lda 	#$11
-            sta 	LCD_CMD_CMD
-			jsr 	WAIT_100ms
-			jsr 	WAIT_100ms
-			lda 	#$29
-            sta 	LCD_CMD_CMD
-			rts
+            ; 21 Command
+            lda     #$21
+            sta     LCD_CMD_CMD
+            ; 11     Command
+            lda     #$11
+            sta     LCD_CMD_CMD
+            jsr     WAIT_100ms
+            jsr     WAIT_100ms
+            lda     #$29
+            sta     LCD_CMD_CMD
+            rts
 
 ; Init Sequence with different command
-;LCD_Init_SEQ_CMD		.text $36, $3A, $B2, $B2, $B2, $B2, $B2, $B7, $BB, $C0, $C2, $C3, $C4, $C6, $D0, $D0
-;LCD_Init_SEQ_DAT		.text $00, $05, $0C, $0C, $00, $33, $33, $35, $35, $2C, $01, $13, $20, $0F, $A4, $A1
+;LCD_Init_SEQ_CMD        .text $36, $3A, $B2, $B2, $B2, $B2, $B2, $B7, $BB, $C0, $C2, $C3, $C4, $C6, $D0, $D0
+;LCD_Init_SEQ_DAT        .text $00, $05, $0C, $0C, $00, $33, $33, $35, $35, $2C, $01, $13, $20, $0F, $A4, $A1
 ; Specific Command String of Data for setup $E0, $E1
-LCD_Init_CMD_E0_SEQ   	.text $F0, $00, $04, $04, $04, $05, $29, $33, $3E, $38, $12, $12, $28, $30
-LCD_Init_CMD_E1_SEQ   	.text $F0, $07, $0A, $0D, $0B, $07, $28, $33, $3E, $36, $14, $14, $29, $32
+LCD_Init_CMD_E0_SEQ       .text $F0, $00, $04, $04, $04, $05, $29, $33, $3E, $38, $12, $12, $28, $30
+LCD_Init_CMD_E1_SEQ       .text $F0, $07, $0A, $0D, $0B, $07, $28, $33, $3E, $36, $14, $14, $29, $32
 
 
 Splash_LCD_Download:
@@ -175,35 +175,35 @@ Splash_LCD_Download:
             ; Setup the LCD Windows to go Write into - In this case it is the whole Memory (240x320)
             ; Full Screen
             ; FIRST HALF
-			; 2A Command ( Window X)
+            ; 2A Command ( Window X)
             ; XS = 0
             ; XE = 239
-			lda 	#$2A
-            sta 	LCD_CMD_CMD
-			lda 	#$00	; XStart_High
-			sta 	LCD_CMD_DTA
-			lda 	#$00	; XStart_Low
-			sta 	LCD_CMD_DTA
-			lda 	#$00	; XEnd_High
-			sta 	LCD_CMD_DTA
-			lda 	#$EF	; Xend_Low
-			sta 	LCD_CMD_DTA
-			; 2B Command (Window Y)
+            lda     #$2A
+            sta     LCD_CMD_CMD
+            lda     #$00    ; XStart_High
+            sta     LCD_CMD_DTA
+            lda     #$00    ; XStart_Low
+            sta     LCD_CMD_DTA
+            lda     #$00    ; XEnd_High
+            sta     LCD_CMD_DTA
+            lda     #$EF    ; Xend_Low
+            sta     LCD_CMD_DTA
+            ; 2B Command (Window Y)
             ; YS = 0
             ; YS = 319
-			lda 	#$2B
-            sta 	LCD_CMD_CMD
-			lda 	#$00	; YStart_High
-			sta 	LCD_CMD_DTA
-			lda 	#$00	; YStart_Low
-			sta 	LCD_CMD_DTA
-			lda 	#$01	; YEnd_High	; 280
-			sta 	LCD_CMD_DTA
-			lda 	#$3F		; Yend_Low
-			sta 	LCD_CMD_DTA
+            lda     #$2B
+            sta     LCD_CMD_CMD
+            lda     #$00    ; YStart_High
+            sta     LCD_CMD_DTA
+            lda     #$00    ; YStart_Low
+            sta     LCD_CMD_DTA
+            lda     #$01    ; YEnd_High    ; 280
+            sta     LCD_CMD_DTA
+            lda     #$3F        ; Yend_Low
+            sta     LCD_CMD_DTA
 
-			lda 	#$2C        ; Tell the LCD to expect Data
-            sta 	LCD_CMD_CMD
+            lda     #$2C        ; Tell the LCD to expect Data
+            sta     LCD_CMD_CMD
 
             ; The raster is stored bottom-up. Start at its last row and walk
             ; backward one 480-byte row at a time.
@@ -289,10 +289,10 @@ _out:
 ;
 ; Not Super Sexy but so early in the initialisation of the system that'd prolly the best way to go (to be changed with something more sexy?)
 WAIT_100ms: phx
-            ldx 	#100
-WAIT100L:   jsr 	WAIT_1MS
+            ldx     #100
+WAIT100L:   jsr     WAIT_1MS
             dex
-            bne 	WAIT100L
+            bne     WAIT100L
             plx
             rts
 
