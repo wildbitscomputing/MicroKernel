@@ -1,5 +1,6 @@
 ; This file is part of the TinyCore MicroKernel for the Foenix F256K2.
-; Copyright 2024 <stef@c256foenix.com>.
+; Copyright 2024 <stef@c256foenix.com>
+; Copyright 2026 Wildbits Computing Company
 
             .cpu    "w65c02"
 
@@ -10,28 +11,24 @@ k2lcd       .namespace
 rows_remaining .word   ?
             .send
 
-            ;.section    kernel
             .section    global
 
-; F256K2 Splash LCD
-LCD_CMD_CMD             = $DD40    ;Write Command Here
-LCD_RST                 = $10      ; 0 to Reset (RSTn)
-LCD_BL                  = $20      ; 1 = ON, 0 = OFF
-; Read Only
-LCD_TE                  = $40      ; Tear Enable
-LCD_CMD_DTA             = $DD41    ;Write Data (For Command) Here
-; Always Write in Pairs, otherwise the State Machine will Lock
-LCD_PIX_LO              = $DD42    ; {G[2:0], B[4:0]}
-LCD_PIX_HI              = $DD43    ; {R[4:0], G[5:3]}
-LCD_CTRL_REG            = $DD44
+; Memory-mapped LCD interface registers
+reg         .namespace
+CMD         = $DD40     ; Command register
+DATA        = $DD41     ; Command parameter/data register
 
-LCD_WIDTH               = 240
-LCD_HEIGHT              = 320
-LCD_BYTES_PER_PIXEL     = 2
-LCD_ROW_SIZE            = LCD_WIDTH * LCD_BYTES_PER_PIXEL
-LCD_LAST_ROW            = platform.spi_flash.layout.LCD_RASTER.end - LCD_ROW_SIZE + 1
+; Pixel data; always write in pairs, otherwise the state machine will lock!
+PIX_LO      = $DD42     ; {G[2:0], B[4:0]}
+PIX_HI      = $DD43     ; {R[4:0], G[5:3]}
 
-.cerror LCD_ROW_SIZE * LCD_HEIGHT != platform.spi_flash.layout.LCD_RASTER.size, "LCD image size does not match the corresponding flash region data"
+CTRL        = $DD44     ; Control register
+            .endn
+
+ctrl_bit    .namespace
+RST         = $10       ; 0 to reset (RSTn)
+BACKLIGHT   = $20       ; 1 = ON, 0 = OFF
+            .endn
 
 init                                ; *** IMPORTANT -> If there is no LCD and if passes the Tests, the machine will hang, you need to have a LCD Installed ***
             jsr     get_board
@@ -41,169 +38,218 @@ init                                ; *** IMPORTANT -> If there is no LCD and if
             bne     _out
 
           ; Release reset but keep backlight OFF during drawing
-            lda     #LCD_RST
-            sta     LCD_CTRL_REG
+            lda     #ctrl_bit.RST
+            sta     reg.CTRL
 
-            jsr     LCD_1_69_Init            ; Go Init the LCD
-            jsr     Splash_LCD_Download        ; Go Get the SPI Flash Data and Feed the Display
+            jsr     LCD_1_69_Init           ; Init the LCD
+            jsr     Splash_LCD_Download     ; Read the splash raster from the SPI flash and feed the display
             bcs     _out
 
           ; Turn on backlight after image is ready
-            lda     #LCD_RST | LCD_BL
-            sta     LCD_CTRL_REG
+            lda     #ctrl_bit.RST | ctrl_bit.BACKLIGHT
+            sta     reg.CTRL
 
 _out:
             rts
 
+; ST7789V display controller commands
+command     .namespace
+NOP         = $00   ; No operation
+SWRESET     = $01   ; Software reset
+RDDID       = $04   ; Read display ID
+RDDST       = $09   ; Read display status
+RDDPM       = $0A   ; Read display power mode
+RDDMADCTL   = $0B   ; Read display MADCTL
+RDDCOLMOD   = $0C   ; Read display pixel format
+RDDIM       = $0D   ; Read display image mode
+RDDSM       = $0E   ; Read display signal mode
+RDDSDR      = $0F   ; Read display self-Diagnostic result
+SLPIN       = $10   ; Sleep in
+SLPOUT      = $11   ; Sleep out
+PTLON       = $12   ; Partial mode on
+NORON       = $13   ; Normal display mode on
+INVOFF      = $20   ; Display inversion off
+INVON       = $21   ; Display inversion on
+GAMSET      = $26   ; Gamma set
+DISPOFF     = $28   ; Display off
+DISPON      = $29   ; Display on
+CASET       = $2A   ; Column address set
+RASET       = $2B   ; Row address set
+RAMWR       = $2C   ; Memory write
+PTLAR       = $30   ; Partial start/end address set
+VSCRDEF     = $33   ; Vertical scrolling definition
+TEOFF       = $34   ; Tearing effect line off
+TEON        = $35   ; Tearing effect line on
+MADCTL      = $36   ; Memory data access control
+VSCRSADD    = $37   ; Vertical scrolling start address
+IDMOFF      = $38   ; Idle mode off
+IDMON       = $39   ; Idle mode on
+COLMOD      = $3A   ; Interface pixel format
+RAMWRC      = $3C   ; Memory write continue
+TESCAN      = $44   ; Set tear scanline
+WRDISBV     = $51   ; Write display brightness
+WRCTRLD     = $53   ; Write CTRL display
+WRCACE      = $55   ; Write content adaptive brightness control and color enhancement
+WRCABCMB    = $5E   ; Write CABC minimum brightness
+RDCABCMB    = $5F   ; Read CABC minimum brightness
+RDABCSDR    = $68   ; Read automatic brightness control self-diagnostic result
+RAMCTRL     = $B0   ; RAM control
+RGBCTRL     = $B1   ; RGB control
+PORCTRL     = $B2   ; Porch control
+FRCTRL1     = $B3   ; Frame rate control 1 (in partial mode/idle color)
+PARCTRL     = $B5   ; Partial mode control
+GCTRL       = $B7   ; Gate control
+GTADJ       = $B8   ; Gate on timing adjustment
+DGMEN       = $BA   ; Digital gamma enable
+VCOMS       = $BB   ; VCOMS setting
+LCMCTRL     = $C0   ; LCM control
+IDSET       = $C1   ; ID code setting
+VDVVRHEN    = $C2   ; VDV and VRH command enable
+VRHS        = $C3   ; VRH set
+VDVS        = $C4   ; VDV set
+VCMOFSET    = $C5   ; VCOMS offset set
+FRCTRL2     = $C6   ; Frame rate control in normal mode
+CABCCTRL    = $C7   ; CABC control
+REGSEL1     = $C8   ; Register value selection 1
+REGSEL2     = $CA   ; Register value selection 2
+PWMFRSEL    = $CC   ; PWM frequency selection
+PWCTRL1     = $D0   ; Power control 1
+VAPVANEN    = $D2   ; Enable VAP/VAN signal output
+RDID1       = $DA   ; Read ID1
+RDID2       = $DB   ; Read ID2
+RDID3       = $DC   ; Read ID3
+CMD2EN      = $DF   ; Command 2 enable
+PVGAMCTRL   = $E0   ; Positive voltage gamma control
+NVGAMCTRL   = $E1   ; Negative voltage gamma control
+DGMLUTR     = $E2   ; Digital gamma look-up table for red
+DGMLUTB     = $E3   ; Digital gamma look-up table for blue
+GATECTRL    = $E4   ; Gate control
+SPI2EN      = $E7   ; SPI2 enable
+PWCTRL2     = $E8   ; Power control 2
+EQCTRL      = $E9   ; Equalize time control
+PROMCTRL    = $EC   ; Program control
+PROMEN      = $FA   ; Program mode enable
+NVMSET      = $FC   ; NVM setting
+PROMACT     = $FE   ; Program action
+            .endn
+
+lcd_cmd     .macro cmd, data
+          ; LCD command start
+            lda     #command.\cmd
+            sta     reg.CMD
+
+    .if len(\data) < 5
+            .if len(\data) > 0
+          ; Short data sequence, emit inline
+            lda     #\data[0]
+            sta     reg.DATA
+            .endif
+            .for i in range(1, len(\data))
+            .if \data[i] == \data[i - 1]
+                sta     reg.DATA
+            .else
+                lda     #\data[i]
+                sta     reg.DATA
+            .endif
+            .endfor
+    .else
+          ; Long data sequence, emit from an embedded table; clobbers X
+            ldx     #0
+          - lda     +,x
+            sta     reg.DATA
+            inx
+            cpx     #len(\data)
+            bne     -
+            bra     ++
+
+          ; Embedded data table
+          + .for i in range(0, len(\data))
+            .byte   \data[i]
+            .endfor
+
+          +
+            .endif
+          ; LCD command end
+            .endmacro
+
 LCD_1_69_Init
-            lda     #$11
-            sta     LCD_CMD_CMD
-            jsr     WAIT_100ms
-            jsr     WAIT_100ms
-            ; 36 Command
-            lda     #$36    ; Viewing Side
-            sta     LCD_CMD_CMD
-            lda     #$00    ; Vertical - 70 8 = Invert Color
-            sta     LCD_CMD_DTA
-            ; 3A Command
-            lda     #$3A
-            sta     LCD_CMD_CMD
-            lda     #$05
-            sta     LCD_CMD_DTA
-            ; B2 Command
-            lda     #$B2
-            sta     LCD_CMD_CMD
-            lda     #$0C
-            sta     LCD_CMD_DTA
-            sta     LCD_CMD_DTA
-            lda     #$00
-            sta     LCD_CMD_DTA
-            lda     #$33
-            sta     LCD_CMD_DTA
-            sta     LCD_CMD_DTA
-            ; B7 Command
-            lda     #$B7
-            sta     LCD_CMD_CMD
-            lda     #$35
-            sta     LCD_CMD_DTA
-            ; BB Command
-            lda     #$BB
-            sta     LCD_CMD_CMD
-            lda     #$35
-            sta     LCD_CMD_DTA
-            ; C0 Command
-            lda     #$C0
-            sta     LCD_CMD_CMD
-            lda     #$2C
-            sta     LCD_CMD_DTA
-            ; C2 Command
-            lda     #$C2
-            sta     LCD_CMD_CMD
-            lda     #$01
-            sta     LCD_CMD_DTA
-            ; C3 Command
-            lda     #$C3
-            sta     LCD_CMD_CMD
-            lda     #$13
-            sta     LCD_CMD_DTA
-            ; C4 Command
-            lda     #$C4
-            sta     LCD_CMD_CMD
-            lda     #$20
-            sta     LCD_CMD_DTA
-            ; C6 Command
-            lda     #$C6
-            sta     LCD_CMD_CMD
-            lda     #$0F
-            sta     LCD_CMD_DTA
-            ; D0 Command
-            lda     #$D0
-            sta     LCD_CMD_CMD
-            lda     #$A4
-            sta     LCD_CMD_DTA
-            lda     #$A1
-            sta     LCD_CMD_DTA
-            ; D6 Command
-            lda     #$D0
-            sta     LCD_CMD_CMD
-            lda     #$A4
-            sta     LCD_CMD_DTA
-            ; E0 Command
-            ldx     #$00
-            lda     #$E0
-            sta     LCD_CMD_CMD
-Init_CMDE0_Loop:
-            lda     LCD_Init_CMD_E0_SEQ, x
-            sta     LCD_CMD_DTA
-            inx
-            cpx     #size(LCD_Init_CMD_E0_SEQ)
-            bne     Init_CMDE0_Loop
+          ; ST7789V requires waiting for 120ms after releasing reset before sending SLPOUT
+            .wait_ms    120
 
-            ; E1 Command
-            ldx     #$00
-            lda     #$E1
-            sta     LCD_CMD_CMD
-Init_CMDE1_Loop:
-            lda     LCD_Init_CMD_E1_SEQ, x
-            sta     LCD_CMD_DTA
-            inx
-            cpx     #size(LCD_Init_CMD_E1_SEQ)
-            bne     Init_CMDE1_Loop
+          ; Turn off sleep mode
+            .lcd_cmd    SLPOUT, []
 
-            ; 21 Command
-            lda     #$21
-            sta     LCD_CMD_CMD
-            ; 11     Command
-            lda     #$11
-            sta     LCD_CMD_CMD
-            jsr     WAIT_100ms
-            jsr     WAIT_100ms
-            lda     #$29
-            sta     LCD_CMD_CMD
+          ; Wait 5ms for supply voltages and clock circuits to stabilize
+            .wait_ms    5
+
+          ; LCD raster format: top-to-bottom, left-to-right, RGB
+            .lcd_cmd    MADCTL, [$00]
+
+          ; Set pixel format to 16 bit/pixel
+            .lcd_cmd    COLMOD, [$05]
+
+          ; Set scan timing intervals (aka porch control, ST7789V defaults)
+            .lcd_cmd    PORCTRL, [$0C, $0C, $00, $33, $33]
+
+          ; Set gate control voltages (VGH=13.26V VGL=-10.43, ST7789V default)
+            .lcd_cmd    GCTRL, [$35]
+
+          ; Set VCOM voltage to 1.425V
+            .lcd_cmd    VCOMS, [$35]
+
+          ; LCM control settings (ST7789V default)
+            .lcd_cmd    LCMCTRL, [$2C]
+
+          ; Enable VDVS and VRHS commands
+            .lcd_cmd    VDVVRHEN, [$01, $FF]
+
+          ; Set VAP=4.5V, VAN=-4.5V
+            .lcd_cmd    VRHS, [$13]
+
+          ; Set VDV=0V (ST7789V default)
+            .lcd_cmd    VDVS, [$20]
+
+          ; Set frame rate to 60Hz
+            .lcd_cmd    FRCTRL2, [$0F]
+
+          ; Set power levels (AVDD=6.8V, AVCL=-4.8V, VDDS=2.3V)
+            .lcd_cmd    PWCTRL1, [$A4, $A1]
+
+          ; Positive-polarity gamma curve
+            .lcd_cmd    PVGAMCTRL, [$F0, $00, $04, $04, $04, $05, $29, $33, $3E, $38, $12, $12, $28, $30]
+
+          ; Negative-polarity gamma curve
+            .lcd_cmd    NVGAMCTRL, [$F0, $07, $0A, $0D, $0B, $07, $28, $33, $3E, $36, $14, $14, $29, $32]
+
+          ; Enable display polarity inversion
+            .lcd_cmd    INVON, []
+
+          ; Display on
+            .lcd_cmd    DISPON, []
+
             rts
 
-; Init Sequence with different command
-;LCD_Init_SEQ_CMD        .text $36, $3A, $B2, $B2, $B2, $B2, $B2, $B7, $BB, $C0, $C2, $C3, $C4, $C6, $D0, $D0
-;LCD_Init_SEQ_DAT        .text $00, $05, $0C, $0C, $00, $33, $33, $35, $35, $2C, $01, $13, $20, $0F, $A4, $A1
-; Specific Command String of Data for setup $E0, $E1
-LCD_Init_CMD_E0_SEQ       .text $F0, $00, $04, $04, $04, $05, $29, $33, $3E, $38, $12, $12, $28, $30
-LCD_Init_CMD_E1_SEQ       .text $F0, $07, $0A, $0D, $0B, $07, $28, $33, $3E, $36, $14, $14, $29, $32
 
+LCD_WIDTH               = 240
+LCD_HEIGHT              = 320
+LCD_BYTES_PER_PIXEL     = 2
+LCD_ROW_SIZE            = LCD_WIDTH * LCD_BYTES_PER_PIXEL
+LCD_LAST_ROW            = platform.spi_flash.layout.LCD_RASTER.end - LCD_ROW_SIZE + 1
+
+.cerror LCD_ROW_SIZE * LCD_HEIGHT != platform.spi_flash.layout.LCD_RASTER.size, "LCD image size does not match the corresponding flash region data"
 
 Splash_LCD_Download:
-; The Data on the FLASH for the LCD is made of a BMP File (2 Bytes 565 Encoded) but the file doesn't have a header, so the file needs to be read inverted
-            ; Setup the LCD Windows to go Write into - In this case it is the whole Memory (240x320)
-            ; Full Screen
-            ; FIRST HALF
-            ; 2A Command ( Window X)
-            ; XS = 0
-            ; XE = 239
-            lda     #$2A
-            sta     LCD_CMD_CMD
-            lda     #$00    ; XStart_High
-            sta     LCD_CMD_DTA
-            lda     #$00    ; XStart_Low
-            sta     LCD_CMD_DTA
-            lda     #$00    ; XEnd_High
-            sta     LCD_CMD_DTA
-            lda     #$EF    ; Xend_Low
-            sta     LCD_CMD_DTA
-            ; 2B Command (Window Y)
-            ; YS = 0
-            ; YS = 319
-            lda     #$2B
-            sta     LCD_CMD_CMD
-            lda     #$00    ; YStart_High
-            sta     LCD_CMD_DTA
-            lda     #$00    ; YStart_Low
-            sta     LCD_CMD_DTA
-            lda     #$01    ; YEnd_High    ; 280
-            sta     LCD_CMD_DTA
-            lda     #$3F        ; Yend_Low
-            sta     LCD_CMD_DTA
+          ; Setup the LCD windows to go write into; in our case, it is the
+          ; whole memory (240x320)
 
-            lda     #$2C        ; Tell the LCD to expect Data
-            sta     LCD_CMD_CMD
+          ; Set column address window to [0, 239]
+            .lcd_cmd    CASET, [$00, $00, $00, $EF]
+
+          ; Set row address window to [0, 319]
+            .lcd_cmd    RASET, [$00, $00, $01, $3F]
+
+          ; Tell the LCD to expect raster data
+            .lcd_cmd    RAMWR, []
 
             ; The raster is stored bottom-up. Start at its last row and walk
             ; backward one 480-byte row at a time.
@@ -255,9 +301,7 @@ _main_loop:
 _out:
             rts
 
-;; ********************************
-;; *********** LCD ****************
-;; ********************************
+; Transfer a single raster line from the SPI flash to the LCD
 Splash_LCD_Read_A_Line:
           ; Start a row transfer
             jsr     platform.spi_flash.begin_transfer
@@ -272,9 +316,9 @@ Splash_LCD_Read_A_Line:
           ; SPI controller continues filling the FIFO. At a 12 MHz CPU clock,
           ; the producer-to-consumer rate ratio is approximately 5:1.
           - .platform.spi_flash.get_queued
-            sta     LCD_PIX_LO
+            sta     reg.PIX_LO
             .platform.spi_flash.get_queued
-            sta     LCD_PIX_HI
+            sta     reg.PIX_HI
             dex
             bne     -
 
@@ -284,16 +328,21 @@ Splash_LCD_Read_A_Line:
 _out:
             rts
 
+wait_ms     .macro ms
+            phx
+            ldx     #\ms
+            jsr     wait_x_ms
+            plx
+            .endmacro
+
 ;
-; Wait for 100ms
+; Wait for X ms
 ;
 ; Not Super Sexy but so early in the initialisation of the system that'd prolly the best way to go (to be changed with something more sexy?)
-WAIT_100ms: phx
-            ldx     #100
-WAIT100L:   jsr     WAIT_1MS
+wait_x_ms:
+          - jsr     WAIT_1MS
             dex
-            bne     WAIT100L
-            plx
+            bne     -
             rts
 
 ; Wait for about 1ms
