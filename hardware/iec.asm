@@ -5,12 +5,12 @@
             .cpu    "w65c02"
 
             .namespace  hardware
-           
+
             .mkstr  iec_init,   "Commodore IEC Bus Driver."
 
             .mkstr  iec,    "iec   "
             .mkstr  afs,    "afs   "
-        
+
 iec         .namespace
 
 state       .struct
@@ -34,7 +34,7 @@ fnlen       .byte       ?
 cookie      .byte       ?
 cmd         .byte       ?
             .send
-            
+
             .section    kmem
 id          .word       ?
 requested   .byte       ?
@@ -56,7 +56,7 @@ init
             jsr     kernel.device.alloc
             bcs     _out
             stx     driver
-        
+
             txa
             sta     self.this,x
 
@@ -73,7 +73,7 @@ _loop       sta     channels,x
 
           ; No active stream.
             stz     cur_stream
-        
+
           ; Install our vectors.
             lda     #<vectors
             sta     kernel.src
@@ -100,8 +100,8 @@ _loop       sta     channels,x
             ply
 
 _out
-            rts     
-            
+            rts
+
 dev_status
             inc     awake
             rts
@@ -112,7 +112,7 @@ probe_devices   ; Should prolly preserve registers
             lda     awake
             beq     probe_devices
 
-          ; Probe (on the user's thread)            
+          ; Probe (on the user's thread)
             ldx     driver
             lda     #8
             jsr     test_device
@@ -138,7 +138,7 @@ register_drive
 
             jsr     kernel.token.alloc
             bcs     _out
-            
+
             sta     kernel.fs.entry.device,y
             and     #7
             inc     a
@@ -147,20 +147,20 @@ register_drive
             sta     kernel.fs.entry.driver,y
             lda     #0
             sta     kernel.fs.entry.partition,y
-            
+
             jsr     kernel.fs.register
             bcc     _out
 
             jsr     kernel.token.free
             sec
-            
+
 _out
             ply
             pla
             rts
-                        
 
-  
+
+
 
 dev_open
 dev_close
@@ -179,19 +179,19 @@ dev_get
         ldy     #hardware.afs_str
         cmp     #kernel.device.get.CLASS
         beq     _found
-        
+
         ldy     #hardware.iec_str
         cmp     #kernel.device.get.DEVICE
         beq     _found
-        
+
         ldy     #hardware.iec_str
         cmp     #kernel.device.get.PORT
         beq     _found
-        
+
         ply
         sec
         rts
-        
+
 _ready
       ; If the device has passed a probe, it's ready.
         lda     kernel.fs.entry.index,y
@@ -235,7 +235,7 @@ _found
 dev_set
         sec
         rts
-        
+
 dev_send
     ; X=device, Y=args
 
@@ -247,15 +247,15 @@ dev_send
         txa
         cmp     kernel.fs.args.stream,y
         beq     _go
-        
+
       ; Stream changing; pause the current stream.
         jsr     pause
-        
+
       ; If this is a new stream, do the command.
         ldx     kernel.fs.args.stream,y
         lda     kernel.stream.entry.status,x
         beq     _go
-        
+
       ; If the new stream is in EOF, do the command.
       ; This is a hack ... the 1571 gets confused
       ; if you ask a finished stream to TALK.
@@ -265,7 +265,7 @@ dev_send
       ; Resume the command's existing stream.
         ldx     kernel.fs.args.stream,y
         jsr     resume
-            
+
 _go
         ldx     kernel.fs.args.command,y
         jmp     (_ops,x)
@@ -286,7 +286,7 @@ _ops
         .word   rmdir
         .word   read_block
         .word   write_block
-        
+
 seek
     ; Seek is not supported on IEC devices.  Report an
     ; error; the stream remains open and is freed on close.
@@ -306,7 +306,7 @@ seek
 
 channel_alloc
     ; A = allocated channel number on device in X; carry set on error.
-    
+
         phy
 
       ; Get the channel set for the current device.
@@ -323,28 +323,28 @@ channel_alloc
       ; Get and stash the index of the first set bit.
         tay
         lda     irq.first_bit,y
-        pha      
+        pha
 
       ; Remove the first set bit from the set.
         tay
         lda     irq.bit,y
         eor     tmp
         ldy     kernel.stream.entry.device,x
-        sta     channels-8,y        
+        sta     channels-8,y
 
       ; Pop and and adjust the bit number into a channel number.
         pla
         inc     a   ; Channel zero is reserved for DIR.
         inc     a   ; Channel one is reserved for SAVE.
-        
+
         clc
 _out
         ply
-        rts        
+        rts
 
 channel_free
     ; Free channel in A on device in X.
-     
+
         phy
 
         tay
@@ -364,7 +364,7 @@ channel_free
         lda     channels-8,y
         ora     tmp
         sta     channels-8,y
-        
+
 _done
         ply
         rts
@@ -393,19 +393,19 @@ _loop   lda     (path),y
 _done   iny     ; Point Y just beyond the slash.
 _end    tya
         ply
-        
+
       ; Set the path length; may be zero.
         sta     path_len
 
       ; Start the name
-        sta     fname+0 
-      
+        sta     fname+0
+
       ; Terminate the name
         lda     kernel.fs.args.requested,y
         sec
         sbc     fname+0
         sta     fnlen
-        
+
         rts
 
 open
@@ -417,7 +417,7 @@ open
         jsr     channel_alloc
         bcs     _err
         sta     kernel.stream.entry.channel,x   ; Zero on failure.
-        
+
       ; No command prefix
         lda     #cmd_str.none
         sta     cmd
@@ -428,7 +428,7 @@ open
       ; Open the file ... alas, always succeeds.
         jsr     open_read
         bcs     _channel
-        
+
       ; Try to read the first byte.  This will fail on
       ; a file-not-found.
         jsr     platform.iec.IECIN
@@ -465,7 +465,7 @@ _err
 _send
         sta     kernel.event.entry.type,y
         jmp     kernel.event.enque
-            
+
 
 
 open_dir
@@ -479,7 +479,7 @@ open_dir
       ; Allocate a channel:
       ; Always zero for directories.  TODO: block nested requests.
         stz     kernel.stream.entry.channel,x
-        
+
       ; Request Directory command
         lda     #cmd_str.dir
         sta     cmd
@@ -494,15 +494,15 @@ open_dir
         stz     path+0
         stz     path_len
 
-      ; IEC directories are synthetic files  
-      ; TODO: fine for the user to specify a path and/or filter      
+      ; IEC directories are synthetic files
+      ; TODO: fine for the user to specify a path and/or filter
         lda     #<_fname
         sta     fname+0
         lda     #>_fname
         sta     fname+1
         lda     #1
         sta     fnlen
-        
+
         jsr     open_read
         bcs     _err
 
@@ -513,11 +513,11 @@ open_dir
 _err
         jsr     kernel.stream.free
         lda     #kernel.event.directory.ERROR
-_send        
+_send
         sta     kernel.event.entry.type,y
         jmp     kernel.event.enque
 
-_fname  .null   "*"        
+_fname  .null   "*"
 
 open_new
 
@@ -525,7 +525,7 @@ open_new
 
       ; X->stream
         ldx     kernel.fs.args.stream,y
-        
+
       ; Allocate a channel
         jsr     channel_alloc
         bcs     _err
@@ -556,10 +556,10 @@ _err
 _send
         sta     kernel.event.entry.type,y
         jmp     kernel.event.enque
-            
-_fname  .null   "T"        
 
-        
+_fname  .null   "T"
+
+
 
 open_read
     ; X->stream
@@ -579,7 +579,7 @@ open_read
         jsr     platform.iec.DEV_SEND
         bcs     _out
 
-_out            
+_out
         rts
 
 open_write
@@ -600,12 +600,12 @@ open_write
         jsr     platform.iec.DEV_RECV
         bcs     _out
 
-_out            
+_out
         rts
 
 open_name
     ; X->stream
-        
+
         lda     kernel.stream.entry.device,x
         jsr     platform.iec.LISTEN
         bcs     _out
@@ -643,12 +643,12 @@ send_name
 
       ; Send the name
         jsr     send_name_string
-        
+
       ; Send the mode; TODO: expand for append
         lda     kernel.stream.entry.status,x
         eor     #kernel.stream.entry.WRITE
         bne     _out
-        
+
       ; Append the write mode
         lda     #','
         jsr     platform.iec.IECOUT
@@ -657,7 +657,7 @@ send_name
         jsr     platform.iec.IECOUT
         bcs     _out
 
-_out    rts        
+_out    rts
 
 
 cmd_str .struct
@@ -691,7 +691,7 @@ send_path_string
         phy
         ldy     #0
         bra     _next
-_loop   
+_loop
         lda     (path),y
         jsr     platform.iec.IECOUT
         bcs     _out
@@ -702,13 +702,13 @@ _next   cpy     path_len
 _out
         ply
 _done
-        rts                
+        rts
 
 send_name_string
         phy
         ldy     #0
         bra     _next
-_loop   
+_loop
         lda     (fname),y
         jsr     platform.iec.IECOUT
         bcs     _out
@@ -718,12 +718,12 @@ _next   cpy     fnlen
         clc
 _out
         ply
-        rts                
+        rts
 
 read_int
 
       ; X->stream
-        ldx     kernel.fs.args.stream,y 
+        ldx     kernel.fs.args.stream,y
 
       ; Read Mode in A
         lda     kernel.stream.entry.state,x
@@ -731,18 +731,18 @@ read_int
       ; Dispatch
         tax
         jmp     (_ops,x)
-_ops    
+_ops
         .dstruct    state
 
 write
     ; Y->event
-    
+
           ; X->stream
             ldx     kernel.fs.args.stream,y
 
           ; Mount the embedded buffer
             jsr     mount_buf
-            
+
           ; Limit the requested byte count
             lda     kernel.fs.args.requested,y
             cmp     #64
@@ -762,7 +762,7 @@ _loop       lda     (kernel.dest),y
 _done       tya
             ply
             bcs     _err
-            
+
           ; Export the number of bytes actually written
             sta     kernel.event.entry.file.wrote.wrote,y
 
@@ -774,10 +774,10 @@ _err
 _send
             sta     kernel.event.entry.type,y
             jmp     kernel.event.enque
-                
+
 close
     ; Y->event
-    
+
           ; X->stream
             ldx     kernel.fs.args.stream,y
 
@@ -788,20 +788,20 @@ close
 
           ; Perform the close
             jsr     send_close
-        
+
             lda     #kernel.event.file.CLOSED
             sta     kernel.event.entry.type,y
             jmp     kernel.event.enque
 
 close_dir
     ; Y->event
-    
+
           ; X->stream
             ldx     kernel.fs.args.stream,y
 
           ; Perform the close
             jsr     send_close
-        
+
             lda     #kernel.event.directory.CLOSED
             sta     kernel.event.entry.type,y
             jmp     kernel.event.enque
@@ -811,18 +811,18 @@ send_close
 
           ; UNTALK or UNLISTEN
             jsr     pause
-           
+
           ; close
             lda     kernel.stream.entry.device,x
             jsr     platform.iec.LISTEN
             lda     kernel.stream.entry.channel,x
             jsr     platform.iec.CLOSE
             jsr     platform.iec.UNLISTEN
-            
+
           ; HACK: read status to clear last error
             lda     kernel.stream.entry.device,x
             jsr     platform.iec.clear_status
-            
+
           ; Free the channel
             lda     kernel.stream.entry.channel,x
             jsr     channel_free
@@ -830,7 +830,7 @@ send_close
           ; Free the stream
             txa
             jmp     kernel.stream.free
-            
+
 pause
     ; Pause the stream in X by sending UNTALK or UNLISTEN.
 
@@ -848,7 +848,7 @@ _writing    jmp     platform.iec.UNLISTEN   ; writing
 
 resume
     ; Resume the stream in X by sending TALK or LISTEN.
-    
+
           ; cur_stream will be X after this (assuming no errors).
             stx     cur_stream
 
@@ -880,7 +880,7 @@ read_delay
 
           ; Mount the embedded buffer
             jsr     mount_buf
-            
+
           ; "Read" in the delayed byte from the open.
             lda     kernel.stream.entry.delay,x
             sta     (kernel.dest)
@@ -912,7 +912,7 @@ read_data
 
           ; Mount the embedded buffer
             jsr     mount_buf
-            
+
           ; Limit the requested byte count
             lda     kernel.fs.args.requested,y
             beq     _limit  ; Zero is max
@@ -967,7 +967,7 @@ _out
             jmp     kernel.event.enque
 
 
-read_volume      
+read_volume
 
         ; TODO: populate the extended statistics
 
@@ -994,7 +994,7 @@ read_volume
             bcs     _err
 
           ; Set the read length
-            sta     kernel.event.entry.directory.volume.len,y            
+            sta     kernel.event.entry.directory.volume.len,y
 
           ; Set the extended data
             stz     kernel.dest+0
@@ -1005,14 +1005,14 @@ read_volume
             inc     kernel.dest
             lda     id+1
             sta     (kernel.dest)
-            
+
           ; Set the event type
             lda     #kernel.event.directory.VOLUME
             bra     _send
-_eof        
+_eof
             lda     #kernel.event.directory.EOF
-            bra     _send            
-_err        
+            bra     _send
+_err
             lda     #kernel.event.directory.ERROR
 _send
             sta     kernel.event.entry.type,y
@@ -1022,11 +1022,11 @@ _read
           ; Skip the load address
             jsr     read_pair
             bcs     _err
-            
+
           ; Skip the link pair
             jsr     read_pair
             bcs     _err
-            
+
           ; Read the block count
             jsr     read_pair
             bcs     _err
@@ -1036,7 +1036,7 @@ _read
             bcs     _err
 
           ; skip 1 byte
-            jsr     read   
+            jsr     read
 
           ; Read the disk ID
             jsr     read
@@ -1048,25 +1048,25 @@ _read
 _loop       jsr     read
             bne     _loop
 
-            rts                
-                
+            rts
+
 read_volname
           ; Skip to the first quote
             jsr     find_quote
             bcs     _out
 
           ; Read the 16-byte body (could include quotes...)
-            ldy     #0 
+            ldy     #0
 _loop       jsr     read
-            sta     (kernel.dest),y 
+            sta     (kernel.dest),y
             iny
             cpy     #16
             bne     _loop
 
           ; trim
             jsr     _trim
-              
-          ; Read the trailing quote  
+
+          ; Read the trailing quote
             jsr     read
 _out
             rts
@@ -1078,8 +1078,8 @@ _trim
             cmp     #' '
             beq     _trim
             iny
-_trimmed    rts                
-                
+_trimmed    rts
+
 read_quoted
             jsr     find_quote
             bcs     _err
@@ -1090,22 +1090,22 @@ _loop       jsr     read
             beq     _err
             eor     #$22
             bne     _loop
-_done                
+_done
             dey
             rts
-_err            
+_err
             sec
             rts
 
 find_quote
             jsr     read    ; returns for us
             eor     #$22
-            bne     find_quote 
+            bne     find_quote
             rts
 
 read
             lda     kernel.stream.entry.eof,x
-            bne     _err 
+            bne     _err
 
             jsr     platform.iec.IECIN
             bcs     _err
@@ -1119,11 +1119,11 @@ _err
             sec
             pla
             pla
-            rts                
+            rts
 
 
 read_dirent; TODO: on free, set next event to EOF
-        
+
           ; X->stream
             ldx     kernel.fs.args.stream,y
 
@@ -1153,7 +1153,7 @@ read_dirent; TODO: on free, set next event to EOF
             bcs     _last
 
           ; Set the read length
-            sta     kernel.event.entry.directory.file.len,y 
+            sta     kernel.event.entry.directory.file.len,y
 
           ; Eat the rest of the line
 _loop       jsr     read
@@ -1168,7 +1168,7 @@ _loop       jsr     read
             inc     kernel.dest
             lda     id+1
             sta     (kernel.dest)
-            
+
           ; Report the entry as a DIRENT
             lda     #kernel.event.directory.FILE
             bra     _send
@@ -1223,13 +1223,13 @@ rename
       ; Always uses the command channel.
         lda     #$0f
         sta     kernel.stream.entry.channel,x
-        
+
       ; 'R' for "Rename"
         lda     #cmd_str.rename
         sta     cmd
 
     ; We need to do this one a little differently
-    
+
         lda     kernel.stream.entry.device,x
         jsr     platform.iec.LISTEN
         bcs     _err
@@ -1243,7 +1243,7 @@ rename
         lda     kernel.fs.args.ext,y
         sta     fname+1
         lda     kernel.fs.args.fulfilled,y
-        sta     fnlen      
+        sta     fnlen
         jsr     send_name
         bcs     _err
 
@@ -1251,7 +1251,7 @@ rename
         lda     #'='
         jsr     platform.iec.IECOUT
         bcs     _err
-        
+
       ; Set the old name info
         stz     fname+0
         lda     kernel.fs.args.buf,y
@@ -1260,13 +1260,13 @@ rename
         sta     fnlen
         jsr     send_name_string
         bcs     _err
-    
-      ; TODO: these delays may be bogus ... my hardware is failing    
+
+      ; TODO: these delays may be bogus ... my hardware is failing
         jsr     platform.iec.sleep_1ms          ; for the SD2IEC
         jsr     platform.iec.sleep_1ms          ; for the SD2IEC
         jsr     platform.iec.UNLISTEN
         bcs     _err
-        
+
       ; Not sure how to know when it's done.
       ; Anecdotally, a status request will hang until completed.
         jsr     platform.iec.sleep_1ms          ; for the SD2IEC
@@ -1274,7 +1274,7 @@ rename
         lda     kernel.stream.entry.device,x    ; TODO: move here &c
         jsr     platform.iec.request_status
         bcs     _err
-        
+
       ; Send the event
         lda     #kernel.event.file.RENAMED
         sta     kernel.event.entry.type,y
@@ -1289,14 +1289,14 @@ _out
         jmp     kernel.event.enque
 
 delete
-   
+
       ; Extract what we need from the arg
         ldx     kernel.fs.args.stream,y
 
       ; Always uses the command channel.
         lda     #$0f
         sta     kernel.stream.entry.channel,x
-        
+
       ; 'S' for "Scratch"
         lda     #cmd_str.delete
         sta     cmd
@@ -1339,7 +1339,7 @@ mkfs:
       ; Always uses the command channel.
         lda     #$0f
         sta     kernel.stream.entry.channel,x
-        
+
       ; 'N' for new.
         lda     #cmd_str.mkfs
         sta     cmd
@@ -1392,7 +1392,7 @@ _out
 
 
 mkdir
-   
+
       ; Extract what we need from the arg
         ldx     kernel.fs.args.stream,y
 
@@ -1401,7 +1401,7 @@ mkdir
         sta     kernel.stream.entry.channel,x
 
       ; Set the filename info
-        jsr     parse_name        
+        jsr     parse_name
 
       ; Set the command.
         lda     #cmd_str.mkdir
@@ -1432,19 +1432,19 @@ _out
         jmp     kernel.event.enque
 
 rmdir
-   
+
       ; Extract what we need from the arg
         ldx     kernel.fs.args.stream,y
 
       ; Always uses the command channel.
         lda     #$0f
         sta     kernel.stream.entry.channel,x
-        
+
         lda     #cmd_str.rmdir
         sta     cmd
 
       ; Set the filename info
-        jsr     parse_name        
+        jsr     parse_name
 
       ; Send a named open
         jsr     open_name

@@ -5,19 +5,19 @@
             .cpu    "r65c02"
 
             .namespace  kernel
-            
+
             .section    global
 
 
 udp_init
         jsr     ip_init
-              
+
       ; Init the proto
         ldy     #kernel.net.ipv4.ip.proto
         lda     #17
         sta     (kernel.args.net.socket),y
 
-        rts            
+        rts
 
 ip_init
     ; Library call
@@ -30,18 +30,18 @@ ip_init
         ldy     #kernel.net.ipv4.ip.verlen
         lda     #$45
         sta     (kernel.args.net.socket),y
-        
+
       ; tos
         lda     #0
         ldy     #kernel.net.ipv4.ip.tos
         sta     (kernel.args.net.socket),y
-        
+
       ; MSB of len
         iny
         sta     (kernel.args.net.socket),y
 
       ; id and flags
-        ldy     #kernel.net.ipv4.ip.id 
+        ldy     #kernel.net.ipv4.ip.id
         sta     (kernel.args.net.socket),y
         iny
         lda     #%0100_0000  ; Don't fragment
@@ -53,18 +53,18 @@ ip_init
         sta     (kernel.args.net.socket),y
         iny
         sta     (kernel.args.net.socket),y
-        
+
       ; ttl
         ldy     #kernel.net.ipv4.ip.ttl
         lda     #$40
         sta     (kernel.args.net.socket),y
-        
+
       ; src_ip
         lda     io_ctrl
         pha
         lda     #4
         sta     io_ctrl
-        ldx     #0  
+        ldx     #0
         ldy     #kernel.net.ipv4.ip.src_ip
 _loop   lda     kernel.net.ipv4.ip_addr+$c000,x
         sta     (kernel.args.net.socket),y
@@ -76,7 +76,7 @@ _loop   lda     kernel.net.ipv4.ip_addr+$c000,x
         sta     io_ctrl
 
       ; dest_ip
-        ldx     #0  
+        ldx     #0
         ldy     #kernel.net.ipv4.ip.dest_ip
 _loop2  lda     kernel.args.net.dest_ip,x
         sta     (kernel.args.net.socket),y
@@ -97,22 +97,22 @@ _loop2  lda     kernel.args.net.dest_ip,x
         iny
         lda     kernel.args.net.dest_port+0   ; lsb
         sta     (kernel.args.net.socket),y
-        
+
         ply
         plx
         clc
         rts
 
-.if false        
+.if false
 pkt_copy
         ldy     #6                      ; pkt in a network event
         lda     (kernel.args.event),y   ; Not ideal
         tay                             ; pkt in y
-.endif        
+.endif
 
 
 udp_send
-   
+
         phx
         phy
 
@@ -125,7 +125,7 @@ udp_send
 
         ply
         sty     io_ctrl
-        
+
         ply
         plx
         rts
@@ -139,7 +139,7 @@ udp_recv
         phy
         ldy     #4
         sty     io_ctrl
-        
+
         ldy     kernel.cur_event+$c000
 
       ; point kernel.args.src at the source data.
@@ -178,8 +178,8 @@ _loop   lda     (kernel.args.ptr),y
 _done
       ; Restore and return
         ply
-        sty     io_ctrl  
-        
+        sty     io_ctrl
+
         ply
         plx
         clc
@@ -187,7 +187,7 @@ _done
 
 
 send_udp_int
-        
+
         jsr     ip_for_args
         bcs     _out
 
@@ -215,11 +215,11 @@ send_udp_int
         clc
         adc     #8  ; UDP header length
         sta     (kernel.args.ptr),y
-        
+
       ; Checksum (computed by the stack)
         iny
         iny
-        
+
       ; Data
         iny
         sty     kernel.args.ptr
@@ -264,10 +264,10 @@ _back
         ply
         sty     io_ctrl
         ply
-        sty     mmu_ctrl        
+        sty     mmu_ctrl
 _out
         rts
-        
+
 
 
 ip_for_args
@@ -286,7 +286,7 @@ _ok
         ora     #$c0    ; Buffers aliased here.
         sta     kernel.args.ptr+1
         stz     kernel.args.ptr
-        
+
       ; Copy the header from user memory.
         ldy     #0
 _loop
@@ -294,7 +294,7 @@ _loop
         sta     (kernel.args.ptr),y
         iny
         cpy     #kernel.net.ipv4.udp.data
-        bne     _loop     
+        bne     _loop
 
         clc
         rts

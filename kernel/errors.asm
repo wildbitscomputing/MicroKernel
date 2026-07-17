@@ -3,7 +3,7 @@
 ; SPDX-License-Identifier: GPL-3.0-only
 
             .cpu        "6502"
-            
+
             .namespace  kernel
 
 err         .struct
@@ -15,7 +15,7 @@ REQUEST     .word   err_request
 Errors      .dstruct    err
             .align      256
             .send
-            
+
             .section    kernel
 err_busy    .null   "Device is busy."
 err_request .null   "Unsupported request."

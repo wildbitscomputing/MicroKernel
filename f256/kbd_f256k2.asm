@@ -15,7 +15,7 @@ this        .byte   ?   ; Copy of the device address
 tick        .byte   ?
             .endv
             .endn
-            
+
 vectors     .kernel.device.mkdev    dev
 
 init
@@ -32,7 +32,7 @@ init
         bcs     _out
         txa
         sta     self.this,x
-        
+
       ; Install our vectors.
         lda     #<vectors
         sta     kernel.src
@@ -44,11 +44,11 @@ init
         txa
         ldy     #\IRQ
         jsr     irq.install
-        
+
       ; Enable the hardware interrupt.
         lda     #\IRQ
     	jsr     irq.enable
-    	
+
 .if false
       ; Configure and enable the IRQ source.
       ; SOL line zero is at the start of the visible frame.
@@ -69,7 +69,7 @@ init
 
       ; TODO: if DIP selected, signal keyboard detect
 
-_out    rts       
+_out    rts
 
 dev_open
 dev_close
@@ -90,25 +90,25 @@ dev_get
         ldy     #hardware.hid_str
         cmp     #kernel.device.get.CLASS
         beq     _found
-        
+
         ldy     #hardware.via_str
         cmp     #kernel.device.get.DEVICE
         beq     _found
-        
+
         ldy     #hardware.jports_str
         cmp     #kernel.device.get.PORT
         beq     _found
-        
+
         sec
         bra     _out
 
 _found
         tya
-        clc        
+        clc
 _out
         ply
         rts
-   
+
         .endm
 
 JRA  =  $dc01  ; CIA#1 (Port Register A)
@@ -147,7 +147,7 @@ extra:  .byte       ?   ; Collected bits from extra column
         .send
 
         .section    kernel2
-        
+
 init:
         stz $1
 
@@ -160,7 +160,7 @@ init:
         sta $D6AD
         sta $D6AE
         sta $D6AF
-.endif        
+.endif
 
       ; Init enabled based on dip switches
         stz enabled
@@ -175,7 +175,7 @@ init:
         sta JRA     ; pull-ups for 0-6
         stz JRB     ; input
 
-        lda #$ff    ; CIA#1 port A = outputs 
+        lda #$ff    ; CIA#1 port A = outputs
 ;        sta PRA
         sta joy0
         sta joy1
@@ -183,7 +183,7 @@ init:
         lda #$00    ; CIA#1 port B = inputs
         sta DDRB    ; The optical Keyboard doesn't use the VIAs
         sta DDRA    ; The optical Keyboard doesn't use the VIAs
-      
+
       ; Init the roll-table
         lda     #$ff    ; no key grounded
         ldx     #7+1    ; + extra col
@@ -194,7 +194,7 @@ _loop   sta     state,x
 
 joysticks
       ; Try to allocate an event
-        jsr     kernel.event.alloc 
+        jsr     kernel.event.alloc
         bcs     _done
 
         lda     #kernel.event.JOYSTICK
@@ -205,18 +205,18 @@ joysticks
         sta     joy0
         eor     #$ff
         sta     kernel.event.entry.joystick.joy0,y
-        
+
         lda     JRB
         ora     #$80
         sta     joy1
         eor     #$ff
         sta     kernel.event.entry.joystick.joy1,y
-        
+
         jmp     kernel.event.enque
 
 _done
         rts
-        
+
 scan
         stz     $1
 
@@ -238,8 +238,8 @@ _joysticks
       ; Set up the keyboard scan
 ;        lda     #$7f    ; You start
 ;        ldx     #0
-        
-;_loop   
+
+;_loop
 ;        sta     PRA             ; 0x0111_1111   ; Row Setup - Row[7] First
 ;        sta     mask            ; 0x0111_1111
 
@@ -247,14 +247,14 @@ _joysticks
 ;        lda     JRB             ; Bit[7] VI0 PortB ($DDC0)
 ;        rol     a               ; Move in C
 ;        rol     extra           ; Move C in Bit0 of Extra
-      
+
       ; Regular columns
 ;        lda     PRB             ; Load All PB0 Port (Column)
 ;        sta     hold            ; Save
-;        eor     state,x         ; Inverse with State[x] - Default State[x] = 0xFF 
+;        eor     state,x         ; Inverse with State[x] - Default State[x] = 0xFF
 ;        beq     _next           ; If no key touched, (all $FF) then move along
 
-;        jsr     report        
+;        jsr     report
 
 ;_next                           ; Move to new ROW
 ;        inx
@@ -264,8 +264,8 @@ _joysticks
 ;        bcs     _loop
 
       ; Leave PRA ready for a joystick read.
-;        sta     PRA             
-        
+;        sta     PRA
+
       ; Report any changes associated with the extra column.
 ;        lda     extra
 ;        sta     hold
@@ -308,14 +308,14 @@ _loop_k2
 
         lda     OPT_KBD_DATA    ; Low Part - If nothing happens, it is 00, if a key is pressed it is going to be 1
         eor     #$FF            ; Inverse all the bits since when nothing is being pressed, it needs to be reported as $FF
-        sta     hold            ; Save 
+        sta     hold            ; Save
         eor     state, x        ; compare with actual State
         beq     _next
 
         jsr     report          ;
 
 _next                           ; Move to new ROW
-        dex 
+        dex
         bpl     _loop_k2
 
         ldx     #$08
@@ -361,10 +361,10 @@ _save
       ; Save the state of the bit
         ora     state,x
         sta     state,x
-_next  
+_next
         lda     hold
         eor     state,x
-        bne     _loop 
+        bne     _loop
 
 _done   rts
 
@@ -374,7 +374,7 @@ _pressed
 _released
         pha
         lda     #kernel.event.key.RELEASED
-        jsr     _report        
+        jsr     _report
         pla
         bra     _save
 
@@ -396,7 +396,7 @@ _report
 
       ; A = table entry for key
         sbc     bitno
-        
+
       ; Y-> table entry
         tay
 
@@ -415,7 +415,7 @@ _report
 _caps   jmp     capslock
 _key
         stz     flags
-        
+
       ; Handle special Foenix keys
         lda     state+0
         bit     #32
@@ -444,21 +444,21 @@ _ctrl
         pla
         and     #$1f
         pha
-        
+
 _alt
         lda     state+1
         and     #32
         cmp     #32
         pla
-        
+
         bcs     _queue
         ora     #$80
-        
+
 _queue
         phy
         jsr     kernel.event.alloc
         bcs     _end    ; TODO: beep or something
-            
+
         sta     kernel.event.entry.key.ascii,y
         lda     raw
         sta     kernel.event.entry.key.raw,y
@@ -466,11 +466,11 @@ _queue
         sta     kernel.event.entry.key.flags,y
         lda     event
         sta     kernel.event.entry.type,y
-            
+
         jsr     kernel.event.enque
 _end
         ply
-        rts        
+        rts
 
 _foenix
         lda     raw
@@ -499,7 +499,7 @@ _l2
         bra     _queue
 _found
         lda     _map+1,y
-        ply        
+        ply
         bra     _queue
 _map
         .byte   HOME,   'A'-64
@@ -530,8 +530,8 @@ _done
         rts
 _found
         lda     _map+1,y
-        bra     _done        
-_map  
+        bra     _done
+_map
         .text   "7~"
         .text   "8`"
         .text   "9|"

@@ -5,7 +5,7 @@
         .namespace  kernel
 net     .namespace
 
-        
+
 packet  .namespace
         .virtual    Tokens
 dev     .byte       ?   ; Device that received the packet
@@ -19,7 +19,7 @@ pkt     .byte       ?
 buf     .word       ?
 len     .byte       ?
 alt     .word       ?
-        .send        
+        .send
 
 
         .section    kernel
@@ -41,7 +41,7 @@ init
         sta     kernel.net.ipv4.good
 
         rts
-        
+
 ip_addr_init
         phy
         ldy     #0
@@ -53,7 +53,7 @@ _loop   lda     _ip,y
         ply
         clc
         rts
-_ip     .byte   192,168,1,17               
+_ip     .byte   192,168,1,17
 
 
 accept
@@ -66,7 +66,7 @@ accept
         plx
 
       ; Schedule processing.
-        sty     kernel.thread.start 
+        sty     kernel.thread.start
 
         clc
         rts
@@ -85,32 +85,32 @@ process
         sta     alt+1
         stz     buf
         stz     alt
-        
+
       ; Set the length.
         lda     packet.len,y
         sta     len
-        
+
       ; Process the packet.
         jsr     ipv4.ip_accept
         bcc     process
-        
+
       ; ip_accept failed; free the packet.
         jsr     free
         jmp     process
 _done
         rts
-        
+
 free
         ldy     pkt
-pkt_free        
+pkt_free
         lda     packet.buf,y
         beq     _out
         jsr     kernel.page.free
 _out    jmp     kernel.token.free
 
 
-        
+
         .send
         .endn
         .endn
-        
+

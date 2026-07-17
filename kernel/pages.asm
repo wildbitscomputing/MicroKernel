@@ -3,19 +3,19 @@
 ; SPDX-License-Identifier: GPL-3.0-only
 
             .cpu        "w65c02"
-            
+
             .namespace  kernel
 page        .namespace
 
             .section    dp
 ptr         .word       ?
             .send
-            
+
             .section    kmem
 entries     .byte       ?       ; free list
 count       .byte       ?
             .send
-            
+
             .section    kernel
 
 init
@@ -29,7 +29,7 @@ _loop       jsr     free
             clc
             rts
 
-            
+
 alloc_a
     ; A <- free page, or carry set on error
             php
@@ -44,15 +44,15 @@ alloc_a
             plp
             clc
             rts
-_empty      
+_empty
             plp
             sec
-            rts            
-            
+            rts
+
 
 free
     ; A = page to free
-.if false    
+.if false
     ; TODO: zero
         pha
         phx

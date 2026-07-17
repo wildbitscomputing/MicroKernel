@@ -12,8 +12,8 @@ mkstr       .segment   label, data
             .section    strings
 \1_ptr      .word       \1_msg
             .send
-\1_str      = <\1_ptr            
-            .endm                   
+\1_str      = <\1_ptr
+            .endm
 
             .namespace  hardware
 
@@ -21,7 +21,7 @@ mkstr       .segment   label, data
             .mkstr      ps2,    "ps2   "
             .mkstr      green,  "green "
             .mkstr      purple, "purple"
-            .mkstr      fpga,   "fpga  "            
+            .mkstr      fpga,   "fpga  "
 
             ;.mkstr      ack,    "Received an ack ($fa)."
             ;.mkstr      echo,   "Received an echo reply ($ee)."
@@ -38,14 +38,14 @@ mkstr       .segment   label, data
             .mkstr      imatch, "Matching ident bytes."
             .mkstr      upgrade,"Requesting Intellimouse upgrade."
             .mkstr      ps2err, "FPGA lost sync; disabling device."
-            
+
 
 ps2         .namespace
 auto        .namespace
 
 self        .namespace
             .virtual    DevState
-this        .byte   ?   ; self     
+this        .byte   ?   ; self
 
           ; Received data
 rx1         .byte   ?   ; first received byte after ack
@@ -100,7 +100,7 @@ open:
             jsr     platform.dips.read
             bit     #platform.dips.BOOT_MENU
             bne     _full_init
-            
+
             lda     #rx.auto
             sta     self.rx_state,x
             sta     self.handler,x
@@ -114,11 +114,11 @@ _full_init
             lda     #40
             jsr     kernel.delay.insert
 
-_out        
+_out
             clc
             rts
 
-            
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ; Commands
 
@@ -158,7 +158,7 @@ auto_detect
             cmp     #$f4
             bne     _enable
             rts
-            
+
 _enable
             lda     #auto_str
             jsr     kernel.log.dev_message
@@ -177,7 +177,7 @@ auto_wait
             sta     self.next_action,x
 
             rts
-            
+
 send_command
     ; Send the command byte in A, wait for an ACK, and resume.
 
@@ -193,7 +193,7 @@ send_command
             sta     self.retry_count,x
             lda     self.sending,x
             jmp     send
-            
+
 send_command_with_arg
     ; Send the command byte in A, arg in Y.
 
@@ -207,17 +207,17 @@ send_command_with_arg
           ; Set the success action to action_send_arg.
             lda     #action.send_arg
             sta     self.next_action,x
-            
+
           ; Switch the state machine to rx_until_ack.
             lda     #rx.until_ack
             sta     self.rx_state,x
-            
-          ; Send the command.          
+
+          ; Send the command.
             lda     #RETRIES
             sta     self.retry_count,x
             lda     self.sending,x
             jmp     send
-            
+
 send
 .if log_data
             pha
@@ -225,9 +225,9 @@ send
             lda #txd_str
             jsr kernel.log.dev_message
             pla
-.endif            
+.endif
             jmp     kernel.device.dev.fetch ; TODO: rename upper
-            
+
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ; Ack handlers; mostly called from the rx handler.
@@ -243,11 +243,11 @@ resume      .word   action_resume
 
 action_identify
             ldx     self.this,y
-            jmp     identify        
+            jmp     identify
 
 action_wait_reset
             ldx     self.this,y
-            
+
           ; Set the state machine to gather bytes.
             lda     #rx.idle
             sta     self.rx_state,x
@@ -260,13 +260,13 @@ action_wait_reset
           ; Request the timeout.
             lda     #30    ; Be really generous.
             jmp     kernel.delay.insert
-            
+
 action_wait_ident
             ldx     self.this,y
 
     ;lda #iwait_str
     ;jsr kernel.log.dev_message
-            
+
           ; Set the state machine to gather bytes.
             lda     #rx.idle
             sta     self.rx_state,x
@@ -298,7 +298,7 @@ action_send_arg
 
 action_upgrade_mouse
             ldx     self.this,y
-            
+
             lda     #action.upgrade
             sta     self.next_action,x
 
@@ -312,8 +312,8 @@ _done
 _mouse
             .byte   $f3, 200, $f3, 100, $f3, 80, 0
 
-            
-            
+
+
 action_resume
           ; Switch the rx state machine back to the device handler.
             lda     self.handler,y
@@ -332,14 +332,14 @@ clicks      .word   wait_clicks
             .ends
 
 dev_status
-          ; Chain to the handler.        
+          ; Chain to the handler.
             ldy     self.this,x
             ldx     self.wait_state,y
             jmp     (_table,x)
 
 _table      .dstruct    wait
 
-            
+
 wait_init
     ; The init delay timer has expired; send a reset.
             ldx     self.this,y
@@ -358,7 +358,7 @@ wait_reset
           ; Keyboard self-test passed.
             cmp     #$aa
             beq     _ident
-            
+
           ; Mouse self-test passed
             cmp     #$00
             bne     _auto   ; nope
@@ -380,7 +380,7 @@ _ident
           ; interference...
             lda #$f6 ; Reset, leave the keyboard scanning.
             jmp     send_command
-            
+
 _auto
             jmp     auto_detect
 
@@ -395,7 +395,7 @@ wait_ident
           ; If device didn't identify itself, auto-detect.
             lda     self.rx_count,x
             beq     _auto
-          
+
           ; Pre-identify by response count.
             cmp     #2
             beq     _keyboard
@@ -415,7 +415,7 @@ _intelli
           ; Intellimouse.
             lda     #intel_str
             jsr     kernel.log.dev_message
-           
+
             lda     #rx.intelli
             sta     self.handler,x
             bra     _found
@@ -428,14 +428,14 @@ _std
             lda     #rx.std_mouse
             sta     self.handler,x
             ; fall through to found
-            
+
 _found
             lda     self.rx4,x
 
           ; If it's the same type as last time, we're done.
             cmp     self.mouse_type,x
             beq     _enable
-            
+
           ; If it's mode 3, we're done.
             cmp     #3
             beq     _enable
@@ -457,7 +457,7 @@ _enable
 
           ; Enable reporting
             lda     #action.resume
-            sta     self.next_action,x      
+            sta     self.next_action,x
             lda     #$f4
             jmp     send_command
 
@@ -469,7 +469,7 @@ _keyboard
             lda     self.rx4,x
             cmp     #$83
             bne     _auto
-            
+
             lda     #mode2_str
             jsr     kernel.log.dev_message
 
@@ -497,7 +497,7 @@ _auto
 
             ; Receiver states.
 rx          .struct
-idle        .word   rx_idle 
+idle        .word   rx_idle
 auto        .word   rx_auto
 until_ack   .word   rx_until_ack
 std_mouse   .word   rx_std_mouse
@@ -524,7 +524,7 @@ dev_data
             jsr     platform.console.poke
             plx
             pla
-.endif            
+.endif
 
           ; Todo: check for hot-plug
 
@@ -532,7 +532,7 @@ dev_data
             ldy     self.this,x
             ldx     self.rx_state,y
             jmp     (_table,x)
-            
+
 _table      .dstruct    rx
 
 rx_idle
@@ -557,7 +557,7 @@ rx_idle
 
 rx_until_ack
             ldx     self.this,y
-            
+
             cmp     #$fa        ; ack
             beq     _ack
 
@@ -583,7 +583,7 @@ rx_until_ack
             lda     #wait.reset
             sta     self.wait_state,x
             rts
-            
+
 _reset
           ; Did we request a reset?
             lda     self.sending,x
@@ -596,7 +596,7 @@ _reset
             ldx     self.this,y
             lda     #$aa
             bra     dev_data
-            
+
 _resend
             dec     self.retry_count,x
             bne     _send
@@ -611,7 +611,7 @@ _auto
             jmp     auto_detect ; Give up and auto-detect
 
 _send       lda     self.sending,x
-            jmp     send        
+            jmp     send
 
 _ack
             ldy     self.this,x
@@ -632,29 +632,29 @@ _check1     lda     self.rx4,x
             cmp     self.rx3,x
             beq     _mode1
 _not1       nop
-            
-          ; Mode2 keyboard?  
+
+          ; Mode2 keyboard?
 _check2     lda     self.rx3,x
             cmp     #$f0    ; release
             bne     _not2
             lda     self.rx2,x
             cmp     self.rx4,x
             beq     _mode2
-_not2       nop  
-            
+_not2       nop
+
           ; Mouse?
             lda     self.rx1,x
             and     #$cf
             eor     #$08
             bne     _out
-            
+
             lda     self.rx2,x
             ora     self.rx3,x
             beq     _out
 
             lda     self.rx4,x
             beq     Intellimouse
-            
+
             and     #$cf
             eor     #$08
             beq     _mouse
@@ -666,7 +666,7 @@ _mode1
 _mode2
             lda     #mode2_str
             jsr     kernel.log.dev_message
-            
+
             jsr     hardware.kbd2.init
             lda     #rx.keyboard
             sta     self.rx_state,x
@@ -692,7 +692,7 @@ _mouse
 Intellimouse
             lda     #intel_str
             jsr     kernel.log.dev_message
-           
+
             lda     #rx.intelli
             sta     self.handler,x
             rts
@@ -713,7 +713,7 @@ rx_std_mouse
             cmp     #3
             beq     _accept
             bcs     _reset  ; 4+ is right out!
-            
+
           ; First byte should have bit 3 set.
             cmp     #1
             bne     _out
@@ -734,11 +734,11 @@ _accept
             ldy     self.this,x
             lda     #0
             jsr     rx_idle
-            jmp     mouse_accept            
+            jmp     mouse_accept
 _reset
             stz     self.rx_count,x
             bra     _out
-             
+
 rx_intellimouse ; TODO: discard overflows
 
           ; Rotate in the next byte.
@@ -751,7 +751,7 @@ rx_intellimouse ; TODO: discard overflows
             cmp     #4
             beq     mouse_accept
             bcs     _reset  ; 5+ is right out!
-            
+
           ; First byte should have bit 3 set.
             cmp     #1
             bne     _out
@@ -762,7 +762,7 @@ _reset
             stz     self.rx_count,x
 _out
             rts     ; Gather more data.
-            
+
 normalize
         ; Mask off the non-button bits of A;
         ; Reverse the bits when the mouse is left-handed.
@@ -774,7 +774,7 @@ normalize
             lda     _reverse,y
             ply
 _done       rts
-_reverse    .byte   0,2,1,3,4,6,5,7  
+_reverse    .byte   0,2,1,3,4,6,5,7
 
 
 mouse_accept
@@ -786,7 +786,7 @@ mouse_accept
 
           ; Always accept the packet
             stz     self.rx_count,x
-            
+
           ; Report the raw state
             jsr     mouse_report
 
@@ -802,7 +802,7 @@ mouse_accept
             eor     self.click_state,x
             and     #7
             beq     _done
-          
+
           ; If this is a new button press, start the counter.
             lda     self.rx1,x
             and     #7
@@ -833,8 +833,8 @@ mouse_click
 
           ; Schedule a ~500ms timeout.
             lda     #25
-            jmp     kernel.delay.insert 
-            
+            jmp     kernel.delay.insert
+
 
 count_clicks:
 
@@ -852,7 +852,7 @@ count_clicks:
 
           ; Keep the buttons that are now released (1s)
             and     self.click_state,x
-            
+
           ; Normalize and count
             jsr     normalize
 
@@ -883,7 +883,7 @@ wait_clicks
 
           ; Switch back to X
             ldx     self.this,y
-        
+
           ; Reset the timer handler, so the mouse handler
           ; stops counting.
             stz     self.wait_state,x
@@ -902,7 +902,7 @@ wait_clicks
             ror     a
             cmp     #$80
             ror     a
-            and     #$83            
+            and     #$83
             sta     self.click_count,x
 
 _report
@@ -956,11 +956,11 @@ mouse_report
           ; Allocate the event; loss of a delta is no big deal.
             jsr     kernel.event.alloc
             bcs     _out
-            
+
           ; Fill type
             lda     #kernel.event.mouse.DELTA
             sta     kernel.event.entry.type,y
-            
+
           ; Fill dx
             lda     self.rx1,x
             and     #%0001_0000
@@ -985,7 +985,7 @@ mouse_report
             lda     self.rx1,x
             jsr     normalize
             sta     kernel.event.entry.mouse.delta.buttons,y
-          
+
           ; Fill dz
             lda     self.rx4,x
             and     #$0f
@@ -996,13 +996,13 @@ mouse_report
 _down       lda     #$ff
             bra     _setz
 _up         lda     #$01
-_setz       sta     kernel.event.entry.mouse.delta.z,y       
+_setz       sta     kernel.event.entry.mouse.delta.z,y
 
 _report     jmp     kernel.event.enque
-_out        rts               
+_out        rts
 
             .send
             .endn
             .endn
             .endn
- 
+

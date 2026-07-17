@@ -7,16 +7,16 @@
         .namespace  kernel
         .namespace  net
         .namespace  ipv4
-        
+
 icmp    .struct
         .fill   ip.end
 type    .byte   ?
 code    .byte   ?
 check_h .byte   ?
 check_l .byte   ?
-data    .ends        
+data    .ends
 
-        
+
         .section    kernel
 
 icmp_accept
@@ -45,7 +45,7 @@ echo
         ldy     #icmp.type
         lda     #0
         sta     (buf),y
-        
+
       ; Swap the IP addresses
         jsr     ip_swap_ip
 
@@ -76,9 +76,9 @@ echo
         lda     check_l
         eor     #$ff
         sta     (buf),y
-         
+
       ; Send via ip_send
-        jmp     ip_send     ; TODO: ip_route 
+        jmp     ip_send     ; TODO: ip_route
 
 
         .send

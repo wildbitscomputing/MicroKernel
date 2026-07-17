@@ -36,16 +36,16 @@ tx_esc      .byte   ?   ; Escaped character to transmit
             .endn
 
         .section    kernel
- 
+
 vectors     .kernel.device.mkdev    slip
-       
+
 init
     ; OUT:  X = SLIP device
 
           ; Allocate the device table.
             jsr     kernel.device.alloc
             bcs     _out
-      
+
           ; Init
             txa
             sta     self.this,x
@@ -64,8 +64,8 @@ init
         jsr     kernel.log.dev_message
         ply
 
-_out        
-            rts       
+_out
+            rts
 
 slip_open
     ; Y = upper; A = bps
@@ -85,11 +85,11 @@ slip_open
             bcs     _out
 
           ; Init state
-            jsr     kernel.device.queue.init          
+            jsr     kernel.device.queue.init
 
             stz     self.rx_buf,x
-            stz     self.rx_len,x            
-            stz     self.rx_esc,x            
+            stz     self.rx_len,x
+            stz     self.rx_esc,x
             stz     self.rx_over,x
 
             stz     self.tx_buf,x
@@ -103,10 +103,10 @@ slip_open
         lda     #hardware.open_str
         jsr     kernel.log.dev_message
         ply
-.endif        
+.endif
 
 _out        rts
-            
+
 
 SLIP_END     = 192
 SLIP_ESC     = 219
@@ -119,7 +119,7 @@ slip_data
 
         phy
 
-_retry  
+_retry
 
       ; Handle END byte
         cmp     #SLIP_END          ; An END always means END.
@@ -137,7 +137,7 @@ _retry
         ldy     self.rx_esc,x
         bne     _unesc
 
-_append 
+_append
         ldy     self.rx_buf,x
         beq     _alloc
 
@@ -149,7 +149,7 @@ _data
         inc     self.rx_len,x
         beq     _over
 
-_done   
+_done
         ply
         clc
         rts
@@ -159,11 +159,11 @@ _over   ; TODO: report?
         stz     self.rx_len,x
         bra     _done
 
-_esc    
+_esc
         sta     self.rx_esc,x
         bra     _done
 
-_unesc  
+_unesc
         stz     self.rx_esc,x
 
         cmp     #SLIP_ESC_ESC
@@ -172,7 +172,7 @@ _unesc
         lda     #SLIP_ESC
         bra     _append
 
-_unend  
+_unend
         cmp     #SLIP_ESC_END
         bne     _error
 
@@ -190,24 +190,24 @@ _alloc
         bra     _data
 
 
-_error  
+_error
         dec     self.rx_over,x
         bra     _retry              ; Might be an END.
 
 
-_end    
+_end
         lda     self.rx_over,x
         bne     _drop
 
         lda     self.rx_len,x
         beq     _done               ; Karn packet
-        
+
         lda     self.rx_esc,x
         bne     _drop
 
         jsr     kernel.token.alloc
         bcs     _drop
-        
+
         txa
         sta     kernel.net.packet.dev,y
         lda     self.rx_buf,x
@@ -219,13 +219,13 @@ _end
         stz     self.rx_buf,x
         stz     self.rx_len,x
         bra     _done
-        
+
 _drop
         stz     self.rx_len,x
         stz     self.rx_over,x
         stz     self.rx_esc,x
         jmp     _done
-        
+
 
 slip_status:
         cmp     #kernel.device.status.DATA_ERROR
@@ -234,18 +234,18 @@ slip_status:
         rts
 _over   sta     self.rx_over,x
         clc
-        rts        
+        rts
 
 slip_fetch:
     ; Stream is ready for another byte from us
     ; X->this, Y->UART, return next byte in A or set carry (done for now)
 
         phy
-        
+
       ; Complete any previous escapes.
         lda     self.tx_esc,x
         bne     _unesc
-      
+
       ; Get the buffer
         lda     self.tx_buf,x
         beq     _empty
@@ -258,7 +258,7 @@ _retry
       ; Are we at the end?
         cmp     self.tx_len,x
         beq     _finish
-        
+
       ; Read the next byte to send.
         sta     irq_tmp+0
         lda     self.tx_buf,x
@@ -274,7 +274,7 @@ _retry
 
 _send   clc
 
-_done   ply  
+_done   ply
         rts
 
 _unesc  lda     self.tx_esc,x
@@ -297,7 +297,7 @@ _empty
         sta     $c000+2*80+10
         sty     io_ctrl
         ply
-.endif        
+.endif
 
 
         lda     kernel.net.packet.buf,y
@@ -332,21 +332,21 @@ slip_get
         ldy     #hardware.net_str
         cmp     #kernel.device.get.CLASS
         beq     _found
-        
+
         ldy     #hardware.slip_str
         cmp     #kernel.device.get.DEVICE
         beq     _found
-        
+
         ldy     #hardware.none_str
         cmp     #kernel.device.get.PORT
         beq     _found
-        
+
         sec
         bra     _out
 
 _found
         tya
-        clc        
+        clc
 _out
         ply
         rts
@@ -355,7 +355,7 @@ _out
 slip_set
         sec
         rts
-        
+
 slip_send
         phy
 
@@ -377,18 +377,18 @@ slip_send
         ora #48
         sta     $c000+2*80+10
         sty     io_ctrl
-.endif        
+.endif
 
         ply
         clc
         rts
-        
+
 
 slip_close
         lda     self.upper,x
         tax
         jmp     kernel.device.dev.close
-        
+
 
         .send
         .endn

@@ -18,7 +18,7 @@ flags       .byte   ?   ; Copy of the original rtc flag bits.
 tock        .byte   ?   ; Alternates the +1/+2 centisecond add.
             .endv
             .endn
-            
+
 rtc         .namespace
             .virtual    \BASE
 SECONDS     .byte   ?
@@ -56,7 +56,7 @@ init
         bcs     _out
         txa
         sta     self.this,x
-        
+
       ; Install our vectors.
         lda     #<vectors
         sta     kernel.src
@@ -72,7 +72,7 @@ init
         stz     io_ctrl
         lda     #%0000_0111 ; !UTI, !STOP, 24, DST
         sta     rtc.CONTROL
-        
+
       ; Update the kernel's time.
         jsr     report
 
@@ -102,10 +102,10 @@ init
       ; Enable the hardware interrupt.
         lda     #\IRQ
     	jsr     irq.enable
-    	
+
       ; Clear pending interrupts and force an update.
         jsr     dev_data
-        
+
       ; Log (TODO: event)
         phy
         txa
@@ -114,7 +114,7 @@ init
         jsr     kernel.log.dev_message
         ply
 
-_out    rts       
+_out    rts
 
 dev_open
 dev_close
@@ -139,7 +139,7 @@ dev_data
         bne     report
         bit     #4
         bne     _tick
-        
+
       ; Just a forced reset
         rts
 
@@ -161,7 +161,7 @@ _tick
         cld
 
         rts
-        
+
 report
       ; Update the kernel's clock
       ; Could lock, but we shouldn't need to.
@@ -181,7 +181,7 @@ report
         lda     rtc.CENTURY
         lda     #$20    ; I think Paul's just not setting
         sta     kernel.time.century
-        
+
         jsr     kernel.clock.dispatch
 
 .if false
@@ -201,25 +201,25 @@ dev_get
         ldy     #hardware.rtc_str
         cmp     #kernel.device.get.CLASS
         beq     _found
-        
+
         ldy     #hardware.bq4802_str
         cmp     #kernel.device.get.DEVICE
         beq     _found
-        
+
         ldy     #hardware.none_str
         cmp     #kernel.device.get.PORT
         beq     _found
-        
+
         sec
         bra     _out
 
 _found
         tya
-        clc        
+        clc
 _out
         ply
         rts
-   
+
         .endm
         .endn
-        
+

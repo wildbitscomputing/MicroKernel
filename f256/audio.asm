@@ -3,25 +3,25 @@
 ; SPDX-License-Identifier: GPL-3.0-only
 
         .cpu        "65c02"
-        
+
         .namespace  platform
-audio   .namespace        
+audio   .namespace
 
         .section    dp
 mixer   .byte       ?
         .send
-        
-        .section    kernel        
+
+        .section    kernel
 
 PORT = $D600
 
 wm8776  .hardware.wm8776    $D620
 
-init: 
+init:
 
 .if true
         jmp qnd
-.else        
+.else
         php
         sei
         stz     $1
@@ -63,7 +63,7 @@ init_psg
         sta     PORT
         clc
         rts
-        
+
 .if false
  0 REM *** C64-WIKI SOUND-DEMO ***
 10 S = 54272: W = 17: ON INT(RND(TI)*4)+1 GOTO 12,13,14,15
@@ -107,10 +107,10 @@ init_mixer:
         inc     kernel.thread.lock  ; Token 0 is available and not thread safe
 
         ldy     #0
-_loop   
+_loop
         cmp     #_ilen
         beq     _done
-        
+
         lda     _itab+1,y    ; high bits
         sta     kernel.token.entry.data+1   ; Token 0
         lda     _itab+0,y    ; low bits
@@ -128,22 +128,22 @@ _loop
 _done   dec     kernel.thread.lock
 _out    rts
 
-_itab   
+_itab
         .word   %0001101_000000000  ; $0d: enable headphones
         .word   %0010001_100000001  ; $11: ALC2; AGC 2.67ms
         .word   %0001010_000000010  ; $0a: DAC: 16 bit I2S mode
         .word   %0001011_000000010  ; $0b: ADC: 16 bit I2S mode
         .word   %0001100_001000101  ; $0c: ADC Master: 256fs, DAC Master 256fs
-_ilen   = * - _itab        
+_ilen   = * - _itab
 
 
 qnd
-INIT_CODEC 
-    ; Sorry this is a little sloppy.  At the time, I was going in circles 
+INIT_CODEC
+    ; Sorry this is a little sloppy.  At the time, I was going in circles
     ; only to eventually find that my board had a hardware problem...
     ; Might be nice to clean up the mess someday.  Until then, here's
     ; where we're doing the init...
-    
+
             stz  $1
 
             ;                LDA #%00011010_00000000     ;R13 - Turn On Headphones
@@ -203,7 +203,7 @@ INIT_CODEC
             sta CODEC_CTRL ;
             jsr CODEC_WAIT_FINISH
             rts
-            
+
 CODEC_WAIT_FINISH
 CODEC_Not_Finished:
             lda CODEC_CTRL
@@ -432,7 +432,7 @@ CODEC_Not_Finished:
             cmp #$01
             beq CODEC_Not_Finished
             rts
-            
+
             .endn
 
 pjw_sid     .namespace

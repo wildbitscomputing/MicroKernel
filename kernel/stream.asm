@@ -48,7 +48,7 @@ _loop       jsr     free
             adc     #16
             bne     _loop
             clc
-            rts         
+            rts
 
 zero_block
             phx
@@ -69,7 +69,7 @@ alloc
             lda     entry.next,y
             sta     streams
             tya
-            clc            
+            clc
 _out        ply
             rts
 
@@ -95,7 +95,7 @@ _loop       stz     Streams,x
             bne     _loop
             plx
             rts
-            
+
             .send
 
             .endn

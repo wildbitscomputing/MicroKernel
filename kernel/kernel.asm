@@ -6,13 +6,13 @@
 
             .namespace  kernel
 
-            
+
             .section    dp
 blocks      .byte       ?
-driver_mem  .byte       ?   
+driver_mem  .byte       ?
 ticks       .word       ?
 
-irq_tmp     .word       ? 
+irq_tmp     .word       ?
 
 src         .word       ?
 dest        .word       ?
@@ -35,7 +35,7 @@ time        .dstruct    time_t
 
 init
             stz     cur_event
-            
+
             lda     #8      ; Just reserve the first 64k
             sta     blocks
 
@@ -63,30 +63,30 @@ init
 
           ; If dip1 is on, try to start a binary in low RAM.
             jsr     start_ram
-            
+
           ; If dip1 is off, check for a binary on the cartridge.
             jsr     start_expansion
-            
+
           ; If we're still here, search the flash
           ; Might disable this if DIP1 is on.
             jsr     start_flash
-            
+
           ; If we're still here, spin on the kernel logs
-_log          
+_log
             jsr     platform.console.my_font
 _loop       jsr     startup.wait
-            jmp     _loop                    
+            jmp     _loop
 
 
 start_ram
-        ; If DIP1 is on, and the user has uploaded a ROM image into RAM, 
+        ; If DIP1 is on, and the user has uploaded a ROM image into RAM,
         ; start it.
 
           ; Only scan the RAM if DIP1 is on.
             jsr     platform.dips.read
             and     #platform.dips.BOOT_MENU
             beq     _done
-            
+
           ; Scan the first few slots for a ROM image.
             ldx     #1
 _loop       jsr     kernel.flash.is_rom
@@ -102,7 +102,7 @@ start_expansion
             jsr     platform.dips.read
             and     #platform.dips.BOOT_MENU
             bne     _done
-            
+
             ldx     #$80
 _loop       jsr     kernel.flash.is_rom
             bcc     _found
@@ -129,10 +129,10 @@ block_alloc
         inc     blocks
         clc
         rts
-        
+
 block_free
         rts
-            
+
 tick
       ; Increment the tick count.
         inc     kernel.ticks
@@ -152,11 +152,11 @@ set_timer
         beq     _seconds
         sec
         rts
-        
+
 _frame
         lda     user.timer.absolute
         jmp     delay.request
-        
+
 _seconds
         jmp     clock.request
 

@@ -4,7 +4,7 @@
 
             .namespace  kernel
 flash       .namespace
-            
+
 header      .namespace
             .virtual    $4000
 signature   .word       ?
@@ -14,8 +14,8 @@ start_addr  .word       ?
 version     .word       ?
 kernel      .word       ?
 name        .fill       0
-            .endv     
-            .endn       
+            .endv
+            .endn
 
             .section    kmem
 prompt      .byte       ?
@@ -24,7 +24,7 @@ programs    .fill       8
 
             .section    global
 
-            
+
 is_rom
     ; IN: X = physical block to test
 
@@ -35,7 +35,7 @@ is_rom
           ; Stash the slot at $4000 (Fat32 BSS)
             lda     mmu+2
             pha
-            
+
           ; Mount the header block
             stx     mmu+2       ; $4000
 
@@ -58,7 +58,7 @@ _done
             stz     mmu_ctrl
 
           ; Return the result in the carry
-            rts    
+            rts
 
 start_rom
     ; X = ROM to start
@@ -71,18 +71,18 @@ start_rom
           ; Stash the slot at $4000 (Fat32 BSS)
             lda     mmu+2
             pha
-            
+
           ; Mount the header block in our address space
             stx     mmu+2       ; $4000
 
           ; Y = kernel slot for user_init
-            ldy     mmu+7       
+            ldy     mmu+7
 
           ; Init the user's MMU LUT (RAM+kernel)
           ; IN:  Y = the kernel's kernel slot
           ; OUT: Y = the user's zero slot
             jsr     user_init
-            
+
           ; Mount the user's slot0 in our slot1
             sty     mmu+1   ; Redundant
 
@@ -92,7 +92,7 @@ start_rom
           ; Get the start address in x/y
             ldx     header.start_addr+0
             ldy     header.start_addr+1
-            
+
           ; Restore the RAM under $4000
             lda     #$80
             sta     mmu_ctrl
@@ -119,7 +119,7 @@ _start
 user_init
     ; IN:  Y = block at $E000
     ; OUT: Y = block at $0000
-    
+
          ; Stash the current mmu_ctrl setting
             lda     mmu_ctrl
             pha
@@ -138,14 +138,14 @@ _loop       tya
             sta     mmu,y
             iny
             cpy     #7
-            bne     _loop            
+            bne     _loop
 
           ; Y = user's slot0
             ldy     mmu+0
 
           ; Restore MMU and return
             pla
-            sta     mmu_ctrl            
+            sta     mmu_ctrl
             clc
             rts
 
@@ -206,7 +206,7 @@ start_by_name:
             pha
             lda     #4
             sta     io_ctrl
-            
+
           ; Search for the requested ROM
             jsr     search_expansion
             bcc     _found
@@ -216,7 +216,7 @@ start_by_name:
           ; Restore the kernel map
             lda     #6
             sta     mmu+6
-            
+
           ; Restore io and mmu
             pla
             sta     io_ctrl
@@ -227,7 +227,7 @@ start_by_name:
             ply
             plx
             rts
-            
+
 _found
           ; Switch to the kernel map and chain
             stz     mmu_ctrl
@@ -251,7 +251,7 @@ _out        rts
 
 is_named_rom
             stx     mmu+6
-            
+
           ; Test signature
             lda     header.signature+$8000
             eor     #$f2
@@ -261,8 +261,8 @@ is_named_rom
 _signature  cmp     #1
             bcc     _name
             inx
-            rts                        
-            
+            rts
+
           ; Test name
 _name       ldy     #0
 _loop       lda     (kernel.args.buf),y
@@ -330,7 +330,7 @@ _loop
             jsr     platform.console.puts
             lda     #' '
             jsr     platform.console.puts
-            
+
           ; Print the ROM
             jsr     print_rom
             lda     #$0a
@@ -343,7 +343,7 @@ _loop
             tay
             txa
             sta     programs,y
-            
+
           ; Advance the prompt
             inc     prompt
 
@@ -353,7 +353,7 @@ _loop
             adc     header.block_count
             tax
             bra     _loop
-            
+
 _done
             rts
 
@@ -371,15 +371,15 @@ print_rom
             sta     src+0
             lda     #>header.name
             sta     src+1
-         
+
             ldy     #0
 _loop       lda     (src),y
             beq     _done
             jsr     platform.console.puts
             iny
             bra     _loop
-_done       
-            rts            
+_done
+            rts
 _test       .text   "Is this thing on?",0
 
 _print
@@ -403,8 +403,8 @@ _hex
             lda _digit,y
             ply
             bra _putch
-_digit      .text   "0123456789abcdef"            
-            
+_digit      .text   "0123456789abcdef"
+
 
 
 
@@ -412,4 +412,4 @@ _digit      .text   "0123456789abcdef"
             .send
             .endn
             .endn
-            
+

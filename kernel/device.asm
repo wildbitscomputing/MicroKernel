@@ -3,11 +3,11 @@
 ; SPDX-License-Identifier: GPL-3.0-only
 
             .cpu        "w65c02"
-            
+
             .section    pages
 Devices     .fill       512
 DevState    .fill       512
-            .send          
+            .send
 
             .namespace  kernel
 device      .namespace
@@ -44,7 +44,7 @@ devices     .dstruct    iface
             .endv
 
             .section    kernel
-            
+
 dev         .namespace
 data        jmp     (devices.data,x)
 status      jmp     (devices.status,x)
@@ -83,7 +83,7 @@ _loop2      lda     (src),y
             ply
             pla
             clc
-            rts            
+            rts
 
             .send
 
@@ -99,7 +99,7 @@ INTERRUPT   .word   ?
             .endv
             .endn
 
-get         .namespace            
+get         .namespace
             .virtual    0
 CLASS       .byte   ?   ; Return the device class str.
 DEVICE      .byte   ?   ; Return the device str.
@@ -108,7 +108,7 @@ READY       .byte   ?   ; Return non-zero if the device is ready.
             .endv
             .endn
 
-set         .namespace            
+set         .namespace
             .virtual    0
 RX_PAUSE    .word   ?
 RX_RESUME   .word   ?
@@ -124,7 +124,7 @@ VOLUME      .word   ?
             .section    kmem
 entries     .byte       ?       ; List of free device entries
             .send
-            
+
             .section    kernel
 init
             stz     entries
@@ -135,7 +135,7 @@ _loop       tax
 _next       clc
             adc     #iface.size
             bne     _loop
-            
+
             clc
             rts
 
@@ -143,7 +143,7 @@ alloc
             sec
             ldx     entries
             beq     _out
-            pha 
+            pha
             lda     Devices,x
             sta     entries
             pla
@@ -186,12 +186,12 @@ enque
 
             pla
             clc
-            rts                        
+            rts
 
 deque
     ; OUT:  Y = dequed token; carry set on empty
 
-            pha    
+            pha
 
             ldy     head,x
             bne     _found
@@ -199,7 +199,7 @@ deque
             sec
             ldy     tail,x
             beq     _out
-            
+
           ; Safely take the tail (into y)
             php
             sei
@@ -220,14 +220,14 @@ _loop       lda     kernel.token.entry.next,y   ; next in A
           ; "Find" the head (just where we left it)
             ldy      head,x
 
-_found      
+_found
             lda     kernel.token.entry.next,y
             sta     head,x
             clc
-            
+
 _out        pla
             rts
-            
+
             .endn
             .send
             .endn

@@ -25,7 +25,7 @@ via         .byte       ?
 iec         .byte       ?
 sdc         .byte       ?
 max         .endv
-            
+
         ; Dispatch table
             .section kmem
 irqs
@@ -142,8 +142,8 @@ _dummy
             rts
 
 dispatch:
-            
-_reg0       
+
+_reg0
             stz     $1
             lda     INT_MASK_REG0
             eor     #$ff
@@ -158,7 +158,7 @@ _reg0
             jsr     kernel.device.dev.data
             bra     _reg0
 
-_reg1       
+_reg1
             stz     $1
             lda     INT_MASK_REG1
             eor     #$ff
@@ -173,13 +173,13 @@ _reg1
             jsr     kernel.device.dev.data
             bra     _reg1
 
-_reg2 
+_reg2
     ; Ideally, we'd atomically check both PENDING registers
     ; and loop if any show a new interrupt.  This can't be
     ; done on a 6502, but I've tested it on an 816, and it
     ; makes no difference.  Further, I haven't experienced
     ; an interrupt lockup just returning here, so we'll
-    ; consider this good for now. 
+    ; consider this good for now.
             rts
 
 bit:        .byte   1,2,4,8,16,32,64,128
@@ -187,17 +187,17 @@ bit:        .byte   1,2,4,8,16,32,64,128
 install:
     ; IN:   A -> lsb of a vector in Devices
     ;       Y -> requested IRQ ID
-            
+
             cpy     #max
             bcs     _out
-    
+
             sta     irqs,y
-_out        rts            
+_out        rts
 
 
 enable:
     ; IN:   A -> requested IRQ ID to enable.
-            
+
             cmp     #max
             bcs     _out
 
@@ -227,7 +227,7 @@ map:
     ; A = IRQ #
     ; X <- IRQth byte
     ; A <- IRQth bit set
-    
+
           ; Offset X to the IRQth byte.
             ldx     #0
             bit     #8
@@ -243,7 +243,7 @@ _bit        and      #7
 
 disable:
     ; IN:   A -> requested IRQ ID to diable.
-            
+
             cmp     #max
             bcs     _out
 
@@ -251,7 +251,7 @@ disable:
             phy
             ldy     io_ctrl
             stz     io_ctrl
-            
+
             jsr     map
 
           ; The IRQ dispatcher also read-modify-writes this

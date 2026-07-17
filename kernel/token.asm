@@ -3,10 +3,10 @@
 ; SPDX-License-Identifier: GPL-3.0-only
 
             .cpu        "w65c02"
-            
+
             .section    pages
 Tokens      .fill       256
-            .send          
+            .send
 
             .namespace  kernel
 token       .namespace
@@ -19,7 +19,7 @@ next        .byte       ?
 end         .endv
 size =      end - Tokens
             .endn
-            
+
             .section    kmem
 entries     .byte       ?       ; free list
             .send
@@ -34,7 +34,7 @@ _loop       tay
 _next       clc
             adc     #entry.size
             bne     _loop
-            
+
             clc
             rts
 

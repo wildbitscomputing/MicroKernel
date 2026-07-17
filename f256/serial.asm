@@ -8,7 +8,7 @@
 serial  .namespace
 
         .section    kmem
-com0    .byte       ?       ; Serial device            
+com0    .byte       ?       ; Serial device
 slip0   .byte       ?       ; SLIP device
 midi0   .byte       ?       ; MIDI device
         .send
@@ -17,7 +17,7 @@ midi0   .byte       ?       ; MIDI device
 
 uart    .hardware.u16550    $d630, platform.serial.divtab, irq.serial, (128+32+16)
 
-init 
+init
         stz     io_ctrl     ; TODO: remove when this is the default
 
       ; Initialize the uart.
@@ -60,7 +60,7 @@ _midi
         jsr     kernel.device.dev.open
         bra     _out
 
-_out    rts        
+_out    rts
 
 set_local_ip
         jsr     platform.dips.read
@@ -78,8 +78,8 @@ _done
         clc
         rts
 _wifi   ; https://github.com/e1z0/esp_slip_router
-        .byte   192,168,240,2   
-        
+        .byte   192,168,240,2
+
 
 midi_init
         sec     ; Driver not yet implemented.
@@ -88,7 +88,7 @@ midi_init
 divtab
     ; IN: A->BPS
     ; OUT: A:Y = divisor, or carry set on error.
-    
+
         ldy     #0
 _loop   cpy     #_end
         bcs     _out
@@ -98,13 +98,13 @@ _loop   cpy     #_end
         iny
         iny
         bra     _loop
-_found          
+_found
         lda     _table+1,y
         pha
         lda     _table+2,y
         ply
         clc
-_out    
+_out
         rts
 _table  ; TODO: recalc for 25.175MHz
         .byte   >300,       $72, $14    ; 5234.38->5234
@@ -118,11 +118,11 @@ _table  ; TODO: recalc for 25.175MHz
         .byte   >38400,     $2b, $00    ; 40.89->41
         .byte   >57600,     $1b, $00    ; 27.26->27
         .byte   >115200,    $0d, $00    ; 13.63->13
-_end =  * - _table             
-        
+_end =  * - _table
+
 
             .send
             .endn
             .endn
-            
+
 ; The exeption to this rule is the Audio Section that works from fraction of 14.318Mhz, the interface is still 25.175Mhz, but there is a FIFO to break the different clock domain. the PSG are 3.57Mhz, the Extern SID is 1.000ish something (14.318/14).

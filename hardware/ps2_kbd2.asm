@@ -7,30 +7,30 @@
         .namespace  hardware
 
 kbd2    .namespace
-        
+
             .section    kmem
 e0          .byte       ?   ; e0 prefix received.
 e1          .byte       ?   ; e1 prefix received.
-released    .byte       ?   ; release prefix received 
+released    .byte       ?   ; release prefix received
 meta        .fill 16    ;   Room for the 9 mode keys 16..31.
 debug       .byte       ?
             .send
-            
+
             .section kernel
 
 init
             stz     e0
             stz     e1
             stz     released
-            stz     debug        
-    
+            stz     debug
+
             phx
             ldx #0
 _loop       stz meta,x
             inx
             cpx #16
             bne _loop
-            plx            
+            plx
 
             clc
             rts
@@ -39,7 +39,7 @@ _loop       stz meta,x
 accept
 
         ; Handle prefix codes
-        
+
           ; Key released
             cmp     #$f0
             beq     _f0
@@ -63,28 +63,28 @@ accept
 
             ldy     e1
             bne     _ext1
-            
+
             tay
             lda     keymap,y
 
 _raw
             jsr     send
 
-_drop       
+_drop
             stz     e0
             stz     e1
             stz     released
             rts
 
-_e0         
+_e0
             sta     e0
             rts
 
-_e1         
+_e1
             sta     e1
             rts
 
-_f0         
+_f0
           ; This value will convert a PRESSED into a RELEASED under xor.
             lda     #kernel.event.key.RELEASED ^ kernel.event.key.PRESSED
             sta     released
@@ -120,7 +120,7 @@ _ext0
 _loop       cmp     _etab,y
             beq     _found
             iny
-            iny            
+            iny
             cpy     #_end
             bne     _loop
 
@@ -130,15 +130,15 @@ _loop       cmp     _etab,y
 _found      lda     _etab+1,y
             bra     _raw
 
-_etab       
+_etab
             .byte   $11, RALT
             .byte   $14, RCTRL
-            .byte   $1f, LMETA           
-            .byte   $27, RMETA           
+            .byte   $1f, LMETA
+            .byte   $27, RMETA
             .byte   $4a, KDIV
             .byte   $5a, KENTER
             .byte   $69, END
-            .byte   $6b, LEFT 
+            .byte   $6b, LEFT
             .byte   $6c, HOME
             .byte   $70, INS
             .byte   $71, DEL
@@ -154,7 +154,7 @@ send
           ; Allocate an event; drop keys if out of events.
             jsr     kernel.event.alloc
             bcs     _done
-            
+
           ; Set the raw code
             sta     kernel.event.entry.key.raw,y
 
@@ -171,7 +171,7 @@ send
             lda     #kernel.event.key.PRESSED
             eor     released
             sta     kernel.event.entry.type,y
-            
+
           ; Set the keyboard ID:
             lda     #1
             sta     kernel.event.entry.key.keyboard,y
@@ -190,7 +190,7 @@ ascii
           ; Handle meta-key pressed/released
             cmp     #16
             bcc     _meta
-            
+
           ; Special-case nav/func keys
             tay
             bpl     _shift
@@ -213,7 +213,7 @@ _ctrl     ; CTRL for ASCII: project codes down to $00-$1F
             tya
             and     #$1f
             tay
-            
+
 _alt      ; ALT for ASCII: set the high bit
             tya
             asl     a
@@ -228,16 +228,16 @@ _alt      ; ALT for ASCII: set the high bit
 _done
             ply
             rts
-            
+
 _meta
         ; set/clear the associated flag
 
           ; Y->table entry
-            tay                 
+            tay
 
           ; Carry set on release
             lda     released
-            cmp     #1          
+            cmp     #1
 
           ; A = 1 on press / 0 on release
             rol     a
@@ -245,17 +245,17 @@ _meta
             eor     #1
 
           ; Store
-            sta     meta,y  
+            sta     meta,y
 
           ; Return "Not ASCII"
-            lda     #0 
+            lda     #0
             sec
             bra     _done
 
 shift
     ; Returns the shifted code for the given ASCII character.
     ; IN/OUT: A = character.
-    
+
             cmp     #'a'
             bcc     _find
             cmp     #'z'+1
@@ -264,7 +264,7 @@ shift
             rts
 _find
             ldy     #0
-_loop       
+_loop
             cmp     _map,y
             beq     _found
             iny
@@ -302,15 +302,15 @@ _map
             .byte   '.', '>'
             .byte   '/', '?'
             .byte   '`', '~'
-            
+
 _end        = * - _map
-            
+
 special
     ; Returns ASCII encodings for special characters
     ; IN/OUT: A = character.
-    
+
             ldy     #0
-_loop       
+_loop
             cmp     _map,y
             beq     _found
             iny
@@ -318,7 +318,7 @@ _loop
             cpy     #_end
             bne     _loop
 _default
-          ; Return the natural code by default            
+          ; Return the natural code by default
             rts
 
 _found      lda     _map+1,y
@@ -353,9 +353,9 @@ _map
             .byte   K7,     '7'
             .byte   K8,     '8'
             .byte   K9,     '9'
-            
+
 _end        = * - _map
-            
+
 
 keymap:
 

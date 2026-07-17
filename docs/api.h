@@ -4,7 +4,7 @@
  * the Linux Kernel Exception to the GPL3, programs built to run on the
  * MicroKernel are expected to include this file. Doing so does not affect
  * their license status.
- * 
+ *
  * SPDX-License-Identifier: GPL-3.0-only
  */
 
@@ -19,7 +19,7 @@
 #include <stdint.h>
 
 struct call {  // Mount at $ff00
-    
+
     long NextEvent;  // Copy the next event into user-space.
     long ReadData;   // Copy primary bulk event data into user-space
     long ReadExt;    // Copy secondary bolk event data into user-space
@@ -28,7 +28,7 @@ struct call {  // Mount at $ff00
     long Basic;      // deprecated
     long dummy1;     // reserved
     long dummy2;     // reserved
-    
+
     struct {
         long List;       // Returns a bit-set of available block-accessible devices.
         long GetName;    // Gets the hardware level name of the given block device or media.
@@ -38,7 +38,7 @@ struct call {  // Mount at $ff00
         long Format;     // Perform a low-level format if the media support it.
         long Export;     // Update the FileSystem table with the partition table (if present).
     } BlockDevice;
-    
+
     struct {
         long List;       // Returns a bit-set of available logical devices.
         long GetSize;    // Get the size of the partition or logical device in sectors.
@@ -49,8 +49,8 @@ struct call {  // Mount at $ff00
         long ReadBlock;  // Read a partition-local raw sector on an unmounted device.
         long WriteBlock; // Write a partition-local raw sector on an unmounted device.
     } FileSystem;
-    
-    struct { 
+
+    struct {
         long Open;       // Open the given file for read, create, or append.
         long Read;       // Request bytes from a file opened for reading.
         long Write;      // Write bytes to a file opened for create or append.
@@ -58,21 +58,21 @@ struct call {  // Mount at $ff00
         long Rename;     // Rename a closed file.
         long Delete;     // Delete a closed file.
     } File;
-    
+
     struct {
         long Open;       // Open a directory for reading.
         long Read;       // Read a directory entry; may also return VOLUME and FREE events.
         long Close;      // Close a directory once finished reading.
     } Directory;
-    
-    long gate;    
-    
+
+    long gate;
+
     struct {
         long GetSize;    // Returns rows/cols in kernel args.
         long DrawRow;    // Draw text/color buffers left-to-right
         long DrawColumn; // Draw text/color buffers top-to-bottom
     } Display;
-    
+
     struct {
         long GetIP;      // Get the local IP address.
         long SetIP;      // Set the local IP address.
@@ -83,7 +83,7 @@ struct call {  // Mount at $ff00
         long GetSysInfo; //
         long SetBPS;     // Set the serial BPS (should match the SLIP router's speed).
     } Config;
-    
+
     struct {
         long InitUDP;    //
         long SendUDP;    //
@@ -111,13 +111,13 @@ struct common_t {
     uint8_t  buflen;
     void *   internal;
 };
-    
+
 struct fs_mkfs_t {
     uint8_t  drive;
     uint8_t  cookie;
     // label = common.buf; label_len = common.buflen
 };
-    
+
 struct fs_t {
     union {
         struct fs_mkfs_t  format;
@@ -238,17 +238,17 @@ struct events {
     uint16_t deprecated;
     uint16_t GAME;        // joystick events
     uint16_t DEVICE;      // deprecated
-    
+
     struct {
         uint8_t PRESSED;
         uint8_t RELEASED;
     } key;
-    
+
     struct {
         uint8_t DELTA;
         uint8_t CLICKS;
     } mouse;
-    
+
     struct {
         uint8_t NAME;
         uint8_t SIZE;
@@ -257,7 +257,7 @@ struct events {
         uint8_t FORMATTED;
         uint8_t ERROR;
     } block;
-    
+
     struct {
         uint8_t SIZE;
         uint8_t CREATED;
@@ -266,7 +266,7 @@ struct events {
         uint8_t WROTE;
         uint8_t ERROR;
     } fs;
-    
+
     struct {
         uint8_t NOT_FOUND;
         uint8_t OPENED;
@@ -278,7 +278,7 @@ struct events {
         uint8_t DELETED;
         uint8_t ERROR;
     } file;
-    
+
     struct {
         uint8_t OPENED;
         uint8_t VOLUME;
@@ -290,7 +290,7 @@ struct events {
     } directory;
 };
 
-                 
+
 struct event_key_t {
     uint8_t keyboard;
     uint8_t raw;

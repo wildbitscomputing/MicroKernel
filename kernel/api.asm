@@ -61,7 +61,7 @@ Close       .fill   4   ; Close a directory once finished reading.
 MkDir       .fill   4   ; Create a directory
 RmDir       .fill   4   ; Delete a directory
             .endn
-            
+
             .fill   4   ; call gate
 
 Net         .namespace  ; These are changing!
@@ -88,7 +88,7 @@ Close       .fill   4
             .endn
 
             .endn
-            
+
 Display     .namespace
 Reset       .fill   4   ; Re-init the display
 GetSize     .fill   4   ; Returns rows/cols in kernel args.
@@ -103,7 +103,7 @@ SetTime     .fill   4
 SetTimer    .fill   4
             .endn
 
-            .endv            
+            .endv
 
 ; Kernel Call Arguments
 ; Populate the structure before JSRing to the associated vector.
@@ -111,7 +111,7 @@ SetTimer    .fill   4
             .virtual    $00f0   ; Arg block
 args        .dstruct    args_t
             .cerror     * > $00ff, "Out of kernel arg space."
-            .endv            
+            .endv
 
 args_t      .struct
 
@@ -174,7 +174,7 @@ cookie      .byte       ?
 buf         = args.buf      ; Data buffer (command to send or response received)
 buflen      = args.buflen   ; Buffer length
             .ends
-    
+
           ; File Calls
 file_t      .struct
             .union
@@ -186,7 +186,7 @@ close       .dstruct    fs_close_t
 rename      .dstruct    fs_rename_t
 delete      .dstruct    fs_open_t
             .endu
-            .ends            
+            .ends
 fs_open_t   .struct
 drive       .byte       ?
 cookie      .byte       ?
@@ -238,7 +238,7 @@ close       .dstruct    dir_close_t
 mkdir       .dstruct    dir_open_t
 rmdir       .dstruct    dir_open_t
             .endu
-            .ends            
+            .ends
 dir_open_t  .struct
 drive       .byte       ?
 cookie      .byte       ?
@@ -276,12 +276,12 @@ socket      = args.buf
             .struct
 src_port    .word       ?
 dest_port   .word       ?
-dest_ip     .fill       4            
-            .ends            
-            
+dest_ip     .fill       4
+            .ends
+
            ; Send / Recv
             .struct
-accepted    .byte       ?            
+accepted    .byte       ?
 buf         = args.ext
 buflen      = args.extlen
             .ends
@@ -302,7 +302,7 @@ QUERY       = 128
 absolute    .byte       ?
 cookie      .byte       ?
             .ends
-                                      
+
 time_t      .struct
 century     .byte       ?
 year        .byte       ?
@@ -380,7 +380,7 @@ CREATED     .word   ?   ; The directory has been created.
 DELETED     .word   ?   ; The directory has been deleted.
             .endn
 
-net         .namespace            
+net         .namespace
 TCP         .word   ?
 UDP         .word   ?
             .endn
@@ -415,7 +415,7 @@ timer       .dstruct    kernel.event.timer_t
 irq         .dstruct    kernel.event.irq_t
             .endu
             .ends
-                 
+
           ; Data in keyboard events
 key_t       .struct
 keyboard    .byte   ?   ; Keyboard ID
@@ -423,8 +423,8 @@ raw         .byte   ?   ; Raw key ID
 ascii       .byte   ?   ; ASCII value
 flags       .byte   ?   ; Flags (META)
 META        = $80       ; Meta key; no associated ASCII value.
-            .ends    
-            
+            .ends
+
           ; Data in mouse events
 mouse_t     .struct
             .union
@@ -442,7 +442,7 @@ m_clicks_t  .struct
 inner       .byte   ?
 middle      .byte   ?
 outer       .byte   ?
-            .ends            
+            .ends
 
 joystick_t  .struct
 joy0        .byte   ?
