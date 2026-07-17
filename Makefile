@@ -43,6 +43,7 @@ Jr	= \
 	f256/audio.asm \
 	f256/clock.asm \
 	f256/console.asm \
+	f256/cpu.asm \
 	f256/dips.asm \
 	f256/fat32.asm \
 	f256/flash.asm \

@@ -202,6 +202,9 @@ _zero   stz     Stack,x
         ldx     #$ff
         txs
 
+      ; Initialize CPU-specific platform state
+        jsr     cpu.init
+
       ; Initialize the SPI flash so we can read its startup data
         jsr     spi_flash.init
 
