@@ -205,7 +205,7 @@ _ack
             ;DBG_CALL     debug_ACK
 _end
             jsr     platform.iec.port.assert_CLOCK  ; back to idle state asserting CLOCK
-            jsr     sleep_20us
+            jsr     cpu.wait_20us
 
             ply
             plx
@@ -250,7 +250,7 @@ _wait1      jsr     platform.iec.port.read_CLOCK
             ldy     #0
 _wait2      jsr     platform.iec.port.read_CLOCK
             bcs     _ready
-            jsr     sleep_20us
+            jsr     cpu.wait_20us
             iny
             bne     _wait2
             inx

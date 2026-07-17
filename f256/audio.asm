@@ -288,47 +288,6 @@ playnote:   sec                     ; Convert the note character to an index
             bra loop
 
 ;
-; Wait for about 1ms
-;
-wait_1ms:   phx
-            phy
-
-            ; Inner loop is 6 clocks per iteration or 1us
-            ; Run the inner loop ~1000 times for 1ms
-
-            ldx #3
-wait_outr:  ldy #$ff
-wait_inner: nop
-            dey
-            bne wait_inner
-            dex
-            bne wait_outr
-
-            ply
-            plx
-            rts
-
-;
-; Wait for 100ms
-;
-wait_100ms: phx
-            ldx #100
-wait100l:   jsr wait_1ms
-            dex
-            bne wait100l
-            plx
-            rts
-
-;
-; Wait for some 10ths of seconds
-;
-; X = number of 10ths of a second to wait
-;
-wait_tens:  jsr wait_100ms
-            dex
-            bne wait_tens
-            rts
-;
 ; Assignment of notes to frequency
 ; NOTE: in general, this table should support 10-bit values
 ;       we're using just one octave here, so we can get away with bytes
@@ -511,58 +470,19 @@ clr_loop:   sta SID_LEFT,x
 
             stz SID_LEFT+4
             stz SID_RIGHT+4
- rts
-;
-; Wait forever
-;
-
-loop:       nop
-            bra loop
-
-
-;
-; Wait for about 1ms
-;
-wait_1ms:   phx
-            phy
-
-            ; Inner loop is 6 clocks per iteration or 1us
-            ; Run the inner loop ~1000 times for 1ms
-
-            ldx #3
-wait_outr:  ldy #$ff
-wait_inner: nop
-            dey
-            bne wait_inner
-            dex
-            bne wait_outr
-
-            ply
-            plx
             rts
 
-;
-; Wait for 100ms
-;
-wait_100ms: phx
-            ldx #100
-wait100l:   jsr wait_1ms
-            dex
-            bne wait100l
-            plx
-            rts
+            .endn
 
 ;
 ; Wait for some 10ths of seconds
 ;
 ; X = number of 10ths of a second to wait
 ;
-wait_tens:  jsr wait_100ms
+wait_tens:  jsr cpu.wait_100ms
             dex
             bne wait_tens
             rts
-
-            .endn
 
         .send
         .endn

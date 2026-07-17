@@ -1262,15 +1262,15 @@ rename
         bcs     _err
 
       ; TODO: these delays may be bogus ... my hardware is failing
-        jsr     platform.iec.sleep_1ms          ; for the SD2IEC
-        jsr     platform.iec.sleep_1ms          ; for the SD2IEC
+        jsr     platform.cpu.wait_1ms           ; for the SD2IEC
+        jsr     platform.cpu.wait_1ms           ; for the SD2IEC
         jsr     platform.iec.UNLISTEN
         bcs     _err
 
       ; Not sure how to know when it's done.
       ; Anecdotally, a status request will hang until completed.
-        jsr     platform.iec.sleep_1ms          ; for the SD2IEC
-        jsr     platform.iec.sleep_1ms          ; for the SD2IEC
+        jsr     platform.cpu.wait_1ms           ; for the SD2IEC
+        jsr     platform.cpu.wait_1ms           ; for the SD2IEC
         lda     kernel.stream.entry.device,x    ; TODO: move here &c
         jsr     platform.iec.request_status
         bcs     _err

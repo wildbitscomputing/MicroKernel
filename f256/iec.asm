@@ -156,16 +156,16 @@ _out
 
 init        .proc
 
-            jsr     sleep_1ms
+            jsr     cpu.wait_1ms
             stz     io_ctrl
             jsr     release_ATN
             jsr     release_DATA
             jsr     release_SREQ
             ;jsr     release_CLOCK   ; IDLE state
             jsr     assert_CLOCK   ; IDLE state
-            jsr     sleep_1ms
-            jsr     sleep_1ms
-            jsr     sleep_1ms
+            jsr     cpu.wait_1ms
+            jsr     cpu.wait_1ms
+            jsr     cpu.wait_1ms
             clc
             rts
             .pend
@@ -183,7 +183,6 @@ self        .namespace
 eoi_pending .byte       ?
 rx_eoi      .fill       0   ; shared with mark
 mark        .byte       ?
-sleep20     .byte       ?
 jiffy       .byte       ?   ; jiffy support (0: no/not tested, <0: jiffy detected)
 slow        .byte       ?   ; <0: suppress JiffyDOS for the current command.
                             ; The fast protocol corrupts the drive's command-
@@ -210,14 +209,6 @@ init
     ; Initialize the port and make sure ATN and SREQ aren't stuck.
     ; Carry set on error.
 
-            pha
-            lda     #20
-            bit     $d6a7   ; MID
-            bpl     _iec_init
-            lda     #50
-_iec_init
-            sta     self.sleep20
-            pla
             jsr     platform.iec.port.init
             DBG_CALL debug_init
             stz     self.slow
@@ -234,7 +225,7 @@ _iec_init
             jsr     platform.iec.port.read_ATN
             bcc     _err
 
-            jsr     sleep_1ms
+            jsr     cpu.wait_1ms
 
             clc
             rts
@@ -281,7 +272,7 @@ TALK_SA
             ldy     #0
 _wait       jsr     platform.iec.port.read_CLOCK
             bcc     _ok
-            jsr     sleep_20us
+            jsr     cpu.wait_20us
             iny
             bne     _wait
             dex
@@ -361,9 +352,9 @@ atn_release
 
             sei
             jsr     platform.iec.port.release_ATN
-            jsr     sleep_20us
-            jsr     sleep_20us
-            jsr     sleep_20us
+            jsr     cpu.wait_20us
+            jsr     cpu.wait_20us
+            jsr     cpu.wait_20us
             jsr     platform.iec.port.release_CLOCK
             jsr     platform.iec.port.release_DATA
             cli
@@ -384,7 +375,7 @@ atn_common
             cli
 
           ; Now give the devices ~1ms to start listening.
-            jsr     sleep_1ms
+            jsr     cpu.wait_1ms
 
           ; If no one is listening, there's nothing on
           ; the bus, so signal an error.
@@ -427,7 +418,7 @@ send_common
 
 
           ; There must be at least 100us between bytes.
-            jsr     sleep_100us
+            jsr     cpu.wait_100us
 
             jsr     platform.iec.port.read_ATN
             bcc     _not_jiffy
@@ -453,7 +444,7 @@ _not_jiffy
 _wait
           ; We're still asserting DATA.
             cli
-            jsr     sleep_20us
+            jsr     cpu.wait_20us
 
           ; If the other listeners are ready, we need to respond
           ; quickly, so disable interrupts and "peek" at the
@@ -495,13 +486,13 @@ _Tye        jsr     platform.iec.port.read_DATA
 
           ; The drive should hold DATA for at least 60us.  Give it
           ; 20us, and then repeat our ersatz listener trick.
-            jsr     sleep_20us
+            jsr     cpu.wait_20us
             jsr     platform.iec.port.assert_DATA
             bra     _wait
 
 _send
         ; Give the listeners time to notice that the've all ack'd
-            jsr     sleep_20us  ; NOT on the C64
+            jsr     cpu.wait_20us  ; NOT on the C64
 
         ; Now start pushing out the bits.  Note that the timing
         ; is not critical, but each clock state must last at
@@ -526,7 +517,7 @@ _send_bit
           ; Clock out the next bit
             jsr     platform.iec.port.assert_CLOCK
 
-            jsr     sleep_20us
+            jsr     cpu.wait_20us
             lsr     a
             bcs     _one
             bcc     _zero
@@ -537,11 +528,11 @@ _one        jsr     platform.iec.port.release_DATA
 _clock
           ; Toggle the clock; interrupts are fine here
             cli
-            jsr     sleep_20us  ; TODO: Maybe extend this.
+            jsr     cpu.wait_20us  ; TODO: Maybe extend this.
 
-            jsr     sleep_20us  ; 1541 needs this.
+            jsr     cpu.wait_20us  ; 1541 needs this.
             jsr     platform.iec.port.release_CLOCK
-            jsr     sleep_20us
+            jsr     cpu.wait_20us
             jsr     platform.iec.port.release_DATA
             dex
             bpl     _loop
@@ -576,42 +567,13 @@ _ack        jsr     platform.iec.port.read_DATA
             lda     #50
 _ack        jsr     platform.iec.port.read_DATA
             bcc     _done
-            jsr     sleep_20us
+            jsr     cpu.wait_20us
             dec     a
             bne     _ack
             sec
 .endif
 _done
             rts
-
-sleep_20us
-            phx
-            ldx     self.sleep20
-_loop       dex
-            bne     _loop
-            plx
-            rts
-
-sleep_100us
-            phx
-            ldx     #5
-_loop       jsr     sleep_20us
-            dex
-            bne     _loop
-            plx
-            rts
-
-sleep_300us
-            jsr     sleep_100us
-            jsr     sleep_100us
-            jsr     sleep_100us
-            rts
-
-sleep_1ms
-            jsr     sleep_300us
-            jsr     sleep_300us
-            jsr     sleep_300us
-            jmp     sleep_100us
 
 
 recv_data
@@ -658,9 +620,9 @@ _eoi
           ; Ack the EOI; we can enable IRQs for this.
             jsr     platform.iec.port.assert_DATA
             cli
-            jsr     sleep_20us
-            jsr     sleep_20us
-            jsr     sleep_20us
+            jsr     cpu.wait_20us
+            jsr     cpu.wait_20us
+            jsr     cpu.wait_20us
 
           ; Set the EOI flag.
             dec     self.rx_eoi ; TODO: error on second round
@@ -691,17 +653,17 @@ _wait_rise  jsr     platform.iec.port.read_CLOCK
             plx
 
           ; Ack
-            jsr     sleep_20us
+            jsr     cpu.wait_20us
             jsr     platform.iec.port.assert_DATA
             cli
 
           ; Drives /usually/ work with a lot less, but
           ; I see failures on the SD2IEC on a status check
           ; after file-not-found when debugging is turned off.
-            jsr     sleep_20us  ; Seems to be missing the ack.
-            jsr     sleep_20us  ; Seems to be missing the ack.
-            jsr     sleep_20us  ; Seems to be missing the ack.
-            jsr     sleep_20us  ; Seems to be missing the ack.
+            jsr     cpu.wait_20us  ; Seems to be missing the ack.
+            jsr     cpu.wait_20us  ; Seems to be missing the ack.
+            jsr     cpu.wait_20us  ; Seems to be missing the ack.
+            jsr     cpu.wait_20us  ; Seems to be missing the ack.
 
     ;DBG_CALL debug_ACK
     DBG_CALL debug_write

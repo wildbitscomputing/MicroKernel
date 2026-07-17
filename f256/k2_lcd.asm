@@ -174,13 +174,13 @@ lcd_cmd     .macro cmd, data
 
 LCD_1_69_Init
           ; ST7789V requires waiting for 120ms after releasing reset before sending SLPOUT
-            .wait_ms    120
+            .platform.cpu.wait_ms   120
 
           ; Turn off sleep mode
             .lcd_cmd    SLPOUT, []
 
           ; Wait 5ms for supply voltages and clock circuits to stabilize
-            .wait_ms    5
+            .platform.cpu.wait_ms   5
 
           ; LCD raster format: top-to-bottom, left-to-right, RGB
             .lcd_cmd    MADCTL, [$00]
@@ -251,8 +251,8 @@ Splash_LCD_Download:
           ; Tell the LCD to expect raster data
             .lcd_cmd    RAMWR, []
 
-            ; The raster is stored bottom-up. Start at its last row and walk
-            ; backward one 480-byte row at a time.
+          ; The raster is stored bottom-up. Start at its last row and walk
+          ; backward one 480-byte row at a time.
             lda     #<LCD_LAST_ROW
             sta     platform.spi_flash.src
             lda     #>LCD_LAST_ROW
@@ -283,7 +283,7 @@ _main_loop:
             ora     rows_remaining+1
             beq     _out
 
-            ; Advance to the preceding row in the bottom-up raster
+          ; Advance to the preceding row in the bottom-up raster
             sec
             lda     platform.spi_flash.src
             sbc     #<LCD_ROW_SIZE
@@ -326,43 +326,6 @@ Splash_LCD_Read_A_Line:
             jsr     platform.spi_flash.end_transfer
             clc
 _out:
-            rts
-
-wait_ms     .macro ms
-            phx
-            ldx     #\ms
-            jsr     wait_x_ms
-            plx
-            .endmacro
-
-;
-; Wait for X ms
-;
-; Not Super Sexy but so early in the initialisation of the system that'd prolly the best way to go (to be changed with something more sexy?)
-wait_x_ms:
-          - jsr     WAIT_1MS
-            dex
-            bne     -
-            rts
-
-; Wait for about 1ms
-;
-WAIT_1MS:   phx
-            phy
-
-            ; Inner loop is 6 clocks per iteration or 1us
-            ; Run the inner loop ~1000 times for 1ms
-
-            ldx #3
-wait_outr:  ldy #$ff
-wait_inner: nop
-            dey
-            bne wait_inner
-            dex
-            bne wait_outr
-
-            ply
-            plx
             rts
 
             .send
