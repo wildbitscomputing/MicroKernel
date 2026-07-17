@@ -3,19 +3,19 @@
 ; SPDX-License-Identifier: GPL-3.0-only
 
             .cpu        "w65c02"
-            
+
             .namespace  kernel
 clock       .namespace
 
             .section    dp
 seconds     .byte       ?
 waiting     .byte       ?
-            .send            
+            .send
 
             .virtual    Tokens
 time        .byte       ?
-device      .byte       ?  
-cookie      .byte       ?     
+device      .byte       ?
+cookie      .byte       ?
 next        .byte       ?
             .endv
 
@@ -32,7 +32,7 @@ init
 
 request
     ; A = abs time.
-    
+
             clc
             bit     user.timer.units
             bmi     done
@@ -44,7 +44,7 @@ request
 insert
     ; X = device, A = time
 
-            sec     ; At least 1            
+            sec     ; At least 1
             adc     seconds
             bra     queue
 
@@ -54,14 +54,14 @@ queue
             phy
             jsr     kernel.token.alloc
             bcs     _out
-            
+
           ; Populate the head
             sta     time,y
             txa
             sta     device,y
             lda     user.timer.cookie
             sta     cookie,y
-            
+
           ; Add to list
             php
             sei
@@ -69,14 +69,14 @@ queue
             sta     next,y
             sty     waiting
             plp
-            
+
             clc
 _out
             ply
 done
             lda     seconds
             rts
-	
+
 dispatch
           ; We keep our own seconds counter for native byte wrapping.
             inc     seconds
@@ -84,11 +84,11 @@ dispatch
           ; Take the list; we're already in an IRQ handler.
             lda     waiting
             stz     waiting
-            
+
 _loop
             tay
             beq     _done
-            
+
           ; Expired iff 'time' is at most 8 ticks in the past.
           ; (BPL on CMP is a signed test: it also fired for any
           ; timer more than 127 ticks in the future.)
@@ -97,7 +97,7 @@ _loop
             sbc     time,y
             cmp     #8
             bcc     _call
-       
+
           ; Add back to the list.
 _retry      ldx     next,y
             lda     waiting
@@ -125,20 +125,20 @@ _event
             bcc     _send
             tay
             bra     _retry
-_send       
+_send
             tax
             lda     time,x
             sta     kernel.event.entry.timer.value,y
             lda     cookie,x
             sta     kernel.event.entry.timer.cookie,y
             lda     #kernel.event.timer.EXPIRED
-            sta     kernel.event.entry.type,y            
+            sta     kernel.event.entry.type,y
             jsr     kernel.event.enque
 
             txa
             tay
             bra     _free
-                        
+
 _done
             rts
 

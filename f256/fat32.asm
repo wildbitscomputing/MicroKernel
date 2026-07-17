@@ -5,11 +5,11 @@
             .cpu    "w65c02"
 
             .namespace  hardware
-           
-            .mkstr  fat_init,   "FAT32 + SPI driver." 
+
+            .mkstr  fat_init,   "FAT32 + SPI driver."
 
             .mkstr  fat,    "fat32 "
-        
+
 fat32       .namespace
 
             .virtual    fat_base
@@ -55,7 +55,7 @@ dir_rmdir   .fill   3
 
 dir_chdir   .fill   3
             .endn
-            .endv                   
+            .endv
 
 call        .macro  name
             phx
@@ -87,7 +87,7 @@ cookie      .byte       ?
 cmd         .byte       ?
 fpos        .dword      ?
             .send
-            
+
             .section    kmem    ; Most of these should be per-instance.
 id          .word       ?
 requested   .byte       ?
@@ -107,7 +107,7 @@ led_on:
        ora #2
        sta $d6a0
        rts
-       
+
 led_off
         dec count
         bne _done
@@ -115,7 +115,7 @@ led_off
         lda $d6a0
         and #253
         sta $d6a0
-_done   rts        
+_done   rts
 
 
 init
@@ -134,7 +134,7 @@ init
             jsr     kernel.device.alloc
             bcs     _out
             stx     driver
-        
+
             txa
             sta     self.this,x
 
@@ -145,7 +145,7 @@ init
             lda     $d6a0
             and     #253
             sta     $d6a0
-        
+
           ; Install our vectors.
             lda     #<vectors
             sta     kernel.src
@@ -161,7 +161,7 @@ init
           ; Enable the hardware interrupt.
             lda     #irq.sdc
     	    jsr     irq.enable
-    	
+
           ; Mount C
             lda     #0
             jsr     register_drive
@@ -175,8 +175,8 @@ _done
 
 _out
             clc
-            rts     
-            
+            rts
+
 register_drive
     ; A = device ID
 
@@ -185,7 +185,7 @@ register_drive
 
             jsr     kernel.token.alloc
             bcs     _out
-            
+
             sta     kernel.fs.entry.device,y
             and     #7
             sta     kernel.fs.entry.index,y
@@ -193,23 +193,23 @@ register_drive
             sta     kernel.fs.entry.driver,y
             lda     #0
             sta     kernel.fs.entry.partition,y
-            
+
             jsr     kernel.fs.register
             bcc     _out
 
             jsr     kernel.token.free
             sec
-            
+
 _out
             ply
             pla
             rts
-                        
+
 dev_data
         ; Card inserted interrupt
 
           ; flag card for re-initialization.
-            stz     initialized   
+            stz     initialized
             rts
 
 dev_open
@@ -229,23 +229,23 @@ dev_get
         ldy     #hardware.afs_str
         cmp     #kernel.device.get.CLASS
         beq     _found
-        
+
         ldy     #hardware.fat_str
         cmp     #kernel.device.get.DEVICE
         beq     _found
-        
+
         ldy     #hardware.fat_str
         cmp     #kernel.device.get.PORT
         beq     _found
-        
+
         ply
         sec
         rts
-        
+
 _ready
 
       ; Make sure the card is inserted
-      
+
         stz     io_ctrl
         lda     $d6a0
         and     #64
@@ -267,7 +267,7 @@ _ready
         bcs     _out
         inc     initialized
 
-_out        
+_out
         rts
 
 _found
@@ -279,7 +279,7 @@ _found
 dev_set
         sec
         rts
-        
+
 dev_send
     ; X=device, Y=args
 
@@ -294,11 +294,11 @@ _ready
 
       ; Restore mmu_ctrl
         stz     mmu_ctrl
-_out        
+_out
         rts
-_call        
+_call
         jmp     (_ops,x)
-_ops            
+_ops
         .word   open
         .word   open_dir
         .word   open_new
@@ -341,7 +341,7 @@ open
         lda     kernel.stream.entry.partition,x
         call    fat.ctx_alloc
         bcc     _err
-        sta     kernel.stream.entry.channel,x 
+        sta     kernel.stream.entry.channel,x
 
       ; Make it the current context.
         call    fat.ctx_set
@@ -354,7 +354,7 @@ open
         lda     kernel.fs.args.buf,y
         call    fat.set_ptr
         lda     #0 ; TODO: code placement!??!
-        call    fat.file_open 
+        call    fat.file_open
         bcc     _context    ; TODO: error vs not-found
 
       ; This is a read stream
@@ -367,7 +367,7 @@ open
 
       ; Mark the device as busy
         jsr     led_on
-            
+
       ; Send the event
         lda     #kernel.event.file.OPENED
         bra     _send
@@ -395,26 +395,26 @@ open_new
         stz     io_ctrl
         sec
         bit     $d6a0
-        bmi     _err        
+        bmi     _err
 
       ; Allocate a file handle
         lda     kernel.stream.entry.partition,x
         call    fat.ctx_alloc
         bcc     _err
-        sta     kernel.stream.entry.channel,x 
+        sta     kernel.stream.entry.channel,x
 
       ; Make it the current context.
         call    fat.ctx_set
         bcc     _context
 
       ; Terminate the file name
-        jsr     terminate_name 
+        jsr     terminate_name
 
       ; Open the file.
         lda     kernel.fs.args.buf,y
         call    fat.set_ptr
-        sec     ; overwrite  
-        call    fat.file_new 
+        sec     ; overwrite
+        call    fat.file_new
         bcc     _context
 
       ; This is a write stream
@@ -423,7 +423,7 @@ open_new
 
       ; Mark the device as busy
         jsr     led_on
-            
+
       ; Send the event
         lda     #kernel.event.file.OPENED
         clc
@@ -453,20 +453,20 @@ read_data
           ; Set the buf pointer
             lda     kernel.fs.args.buf,y
             call    fat.set_ptr
-          
+
           ; Set the buf length
             lda     kernel.fs.args.requested,y
             call    fat.set_size
 
           ; Read the data
-            lda     kernel.stream.entry.channel,x 
+            lda     kernel.stream.entry.channel,x
             call    fat.ctx_set
             bcc     _err
             call    fat.file_read
             call    fat.get_error
             ora     #0
             bne     _err
-            
+
           ; Report the number of bytes read.
             call    fat.get_size
             ora     #0
@@ -495,16 +495,16 @@ write
 
           ; Mount the embedded buffer
             jsr     mount_buf
-          
+
           ; Set the buf length
             lda     kernel.fs.args.requested,y
             sta     requested
 
           ; Set the context
-            lda     kernel.stream.entry.channel,x 
+            lda     kernel.stream.entry.channel,x
             call    fat.ctx_set
             bcc     _err
-            
+
           ; Write the data
             phy
             ldy     #0
@@ -518,7 +518,7 @@ _loop       lda     (kernel.dest),y
 _done       tya
             ply
             bcc     _err
-                      
+
           ; Report the number of bytes written.
             sta     kernel.event.entry.file.wrote.wrote,y
 
@@ -534,12 +534,12 @@ _send
 
 seek
     ; Y->event
-    
+
           ; X->stream
             ldx     kernel.fs.args.stream,y
 
           ; Set the context
-            lda     kernel.stream.entry.channel,x 
+            lda     kernel.stream.entry.channel,x
             call    fat.ctx_set
             bcc     _err
 
@@ -582,15 +582,15 @@ _send
 
 close
     ; Y->event
-    
+
           ; X->stream
             ldx     kernel.fs.args.stream,y
 
           ; Set the context
-            lda     kernel.stream.entry.channel,x 
+            lda     kernel.stream.entry.channel,x
             call    fat.ctx_set
             bcc     _error
-            
+
           ; Set the time (fat writes the time on close)
             lda     #kernel.time.century
             call    fat.set_time
@@ -601,16 +601,16 @@ close
 
           ; Mark the device as no longer busy
             jsr     led_off
-            
+
 _error
           ; Free the context
-            lda     kernel.stream.entry.channel,x 
+            lda     kernel.stream.entry.channel,x
             call    fat.ctx_free
 _free
           ; Free the stream
             txa
             jsr     kernel.stream.free
-            
+
           ; Return the event
             clc
             lda     #kernel.event.file.CLOSED
@@ -629,7 +629,7 @@ open_dir
         lda     kernel.stream.entry.partition,x
         call    fat.ctx_alloc
         bcc     _err
-        sta     kernel.stream.entry.channel,x 
+        sta     kernel.stream.entry.channel,x
 
       ; Make it the current context.
         call    fat.ctx_set
@@ -669,7 +669,7 @@ _do_open
 
       ; Mark the device as busy
         jsr     led_on
-            
+
       ; Send the event
         lda     #kernel.event.directory.OPENED
         bra     _send
@@ -688,29 +688,29 @@ _send
 
 close_dir
     ; Y->event
-    
+
           ; X->stream
             ldx     kernel.fs.args.stream,y
 
           ; Set the context
-            lda     kernel.stream.entry.channel,x 
+            lda     kernel.stream.entry.channel,x
             call    fat.ctx_set
             bcc     _free
-            
+
           ; Perform the close
             call    fat.dir_close
 
           ; Free the context
-_free       lda     kernel.stream.entry.channel,x 
+_free       lda     kernel.stream.entry.channel,x
             call    fat.ctx_free
 
           ; Free the stream
             txa
             jsr     kernel.stream.free
-            
+
           ; Mark the device as no longer busy
             jsr     led_off
-            
+
           ; Return the event        ]
             clc
             lda     #kernel.event.directory.CLOSED
@@ -720,7 +720,7 @@ _free       lda     kernel.stream.entry.channel,x
 read_int
 
       ; X->stream
-        ldx     kernel.fs.args.stream,y 
+        ldx     kernel.fs.args.stream,y
 
       ; Read Mode in A
         lda     kernel.stream.entry.state,x
@@ -728,11 +728,11 @@ read_int
       ; Dispatch
         tax
         jmp     (_ops,x)
-_ops    
+_ops
         .dstruct    state
 
 read_volume
-        
+
           ; X->stream
             ldx     kernel.fs.args.stream,y
 
@@ -744,7 +744,7 @@ read_volume
           ; Next call should read a DIRENT
             lda     #state.DIRENT
             sta     kernel.stream.entry.state,x
-            
+
           ; Read the volume label from a temp context
 
             lda     kernel.stream.entry.partition,x
@@ -782,10 +782,10 @@ _send
             clc
             sta     kernel.event.entry.type,y
             jmp     kernel.event.enque
-            
+
 
 read_dirent
-        
+
           ; X->stream
             ldx     kernel.fs.args.stream,y
 
@@ -795,10 +795,10 @@ read_dirent
             bne     _eof
 
           ; Set the context
-            lda     kernel.stream.entry.channel,x 
+            lda     kernel.stream.entry.channel,x
             call    fat.ctx_set
             bcc     _err
-            
+
           ; Read the next entry
             call    fat.dir_read
             bcc     _free
@@ -833,7 +833,7 @@ _free
             pha
             lda     #7
             sta     mmu+4
-            
+
           ; Copy the size
             phy
             ldy     #0
@@ -843,7 +843,7 @@ _loop       lda     (kernel.src),y
             cpy     #4
             bne     _loop
             tya
-            ply            
+            ply
 
           ; Restore the kernel map
             pla
@@ -852,7 +852,7 @@ _loop       lda     (kernel.src),y
             dec     kernel.stream.entry.eof,x
             lda     #kernel.event.directory.FREE
             bra     _send
-            
+
 _eof
             dec     kernel.stream.entry.eof,x
             lda     #kernel.event.directory.EOF
@@ -878,7 +878,7 @@ copy_name
             pha
             lda     #7  ; fat32 ram block
             sta     mmu+4
-            
+
           ; Copy the file name
             phy
             ldy     #0
@@ -888,17 +888,17 @@ _loop       lda     $82CE,y     ; TODO: WTF, fix.
             iny
             bra     _loop
 _done       tya
-            ply            
+            ply
 
           ; Set the read length
-            sta     kernel.event.entry.directory.file.len,y 
-            
+            sta     kernel.event.entry.directory.file.len,y
+
           ; Restore the std map
             pla
             sta     mmu+4
 
           ; Restore the length
-            lda     kernel.event.entry.directory.file.len,y 
+            lda     kernel.event.entry.directory.file.len,y
 
             rts
 
@@ -967,7 +967,7 @@ _loop       lda     (kernel.src),y
             cpy     #3
             bne     _loop
             tya
-            ply            
+            ply
 
           ; Restore the map
             pha
@@ -1011,12 +1011,12 @@ _append
         lda     #'/'
         sta     (fname),y
         iny
-        
+
 _done
         lda     #0
         sta     (fname),y
         ply
-        rts                  
+        rts
 
 terminate_name
 
@@ -1051,7 +1051,7 @@ terminate_rename
         ply
 
         rts
-        
+
 mkfs:
 format:
 
@@ -1118,8 +1118,8 @@ rename
         lda     kernel.stream.entry.partition,x
         call    fat.ctx_alloc
         bcc     _err
-        sta     kernel.stream.entry.channel,x 
-        
+        sta     kernel.stream.entry.channel,x
+
       ; Terminate the old
         jsr     terminate_name
 
@@ -1127,10 +1127,10 @@ rename
         jsr     terminate_rename
 
       ; Set the context
-        lda     kernel.stream.entry.channel,x 
+        lda     kernel.stream.entry.channel,x
         call    fat.ctx_set
         bcc     _context
-        
+
         lda     kernel.fs.args.buf,y
         call    fat.set_ptr
         lda     kernel.fs.args.ext,y
@@ -1157,7 +1157,7 @@ _err
 _out
       ; Mark the device as no longer busy
         jsr     led_off
-            
+
         txa
         jsr     kernel.stream.free
         jmp     kernel.event.enque
@@ -1179,16 +1179,16 @@ delete
         lda     kernel.stream.entry.partition,x
         call    fat.ctx_alloc
         bcc     _err
-        sta     kernel.stream.entry.channel,x 
+        sta     kernel.stream.entry.channel,x
 
       ; Terminate the label
         jsr     terminate_name
-        
+
       ; Set the context
-        lda     kernel.stream.entry.channel,x 
+        lda     kernel.stream.entry.channel,x
         call    fat.ctx_set
         bcc     _context
-        
+
         lda     kernel.fs.args.buf,y
         call    fat.set_ptr
         call    fat.file_delete
@@ -1213,7 +1213,7 @@ _err
 _out
       ; Mark the device as no longer busy
         jsr     led_off
-            
+
         txa
         jsr     kernel.stream.free
         jmp     kernel.event.enque
@@ -1235,16 +1235,16 @@ mkdir
         lda     kernel.stream.entry.partition,x
         call    fat.ctx_alloc
         bcc     _err
-        sta     kernel.stream.entry.channel,x 
-        
+        sta     kernel.stream.entry.channel,x
+
       ; Terminate the label
         jsr     terminate_name
 
       ; Set the context
-        lda     kernel.stream.entry.channel,x 
+        lda     kernel.stream.entry.channel,x
         call    fat.ctx_set
         bcc     _context
-                
+
         lda     kernel.fs.args.buf,y
         call    fat.set_ptr
         call    fat.dir_mkdir
@@ -1270,7 +1270,7 @@ _err
 _out
       ; Mark the device as no longer busy
         jsr     led_off
-            
+
         txa
         jsr     kernel.stream.free
         jmp     kernel.event.enque
@@ -1281,7 +1281,7 @@ rmdir
 
       ; Terminate the label
         jsr     terminate_name
-        
+
       ; Mark the device as busy
         jsr     led_on
 
@@ -1291,18 +1291,18 @@ rmdir
         lda     $d6a0
         cmp     #$80
         bcs     _err
-            
+
       ; Allocate a file handle
         lda     kernel.stream.entry.partition,x
         call    fat.ctx_alloc
         bcc     _err
-        sta     kernel.stream.entry.channel,x 
+        sta     kernel.stream.entry.channel,x
 
       ; Set the context
-        lda     kernel.stream.entry.channel,x 
+        lda     kernel.stream.entry.channel,x
         call    fat.ctx_set
         bcc     _context
-        
+
         lda     kernel.fs.args.buf,y
         call    fat.set_ptr
         call    fat.dir_rmdir
@@ -1327,7 +1327,7 @@ _err
 _out
       ; Mark the device as no longer busy
         jsr     led_off
-            
+
         txa
         jsr     kernel.stream.free
         jmp     kernel.event.enque

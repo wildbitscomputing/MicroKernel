@@ -26,7 +26,7 @@ mkcall      .macro  ADDR
             .mkcall kernel.flash.start_by_number
             .mkcall kernel.flash.start_by_name
             .mkcall kernel.chdir
-            
+
             .mkapi  BlockDevice.List
             .mkapi  BlockDevice.GetName
             .mkapi  BlockDevice.GetSize
@@ -70,7 +70,7 @@ call_gate   .mkcall kernel.gate
             .mkcall kernel.udp_init
             .mkcall kernel.udp_send
             .mkcall kernel.udp_recv
-            
+
             .mkcall kernel.tcp_open
             .mkcall kernel.tcp_accept
             .mkcall kernel.tcp_reject
@@ -135,7 +135,7 @@ Unmount     .word   dummy
 ReadBlock   .word   kernel.fs.read_block
 WriteBlock  .word   kernel.fs.write_block
             .endn
-            
+
 File        .namespace
 Open        .word   kernel.fs.open
 Read        .word   kernel.fs.read
@@ -145,13 +145,13 @@ Rename      .word   kernel.fs.rename
 Delete      .word   kernel.fs.delete
 Seek        .word   kernel.fs.seek
             .endn
-            
+
 Directory   .namespace
 Open        .word   kernel.fs.open_dir
 Read        .word   kernel.fs.read
 Close       .word   kernel.fs.close_dir
 MkDir       .word   kernel.fs.mkdir
-RmDir       .word   kernel.fs.rmdir      
+RmDir       .word   kernel.fs.rmdir
             .endn
 
 Net         .namespace
@@ -169,7 +169,7 @@ Send        .word   kernel.udp_send
 Recv        .word   kernel.udp_recv
             .endn
 
-TCP         .namespace            
+TCP         .namespace
 Open        .word   dummy   ; Direct call
 Accept      .word   dummy   ; Direct call
 Reject      .word   dummy   ; Direct call
@@ -222,11 +222,11 @@ gate
 
 _call   jmp     (_table,x)
 _table  .dstruct    gates
-        
+
 dummy
         sec
         rts
-        
+
 putchar
         phx
         ldx     mmu_ctrl
@@ -291,7 +291,7 @@ _pop
         phy
         ldy     #4
         sty     io_ctrl
-        
+
       ; Copy the data
         ldy     #0
 _loop1
@@ -300,15 +300,15 @@ _loop1
         inx
         iny
         cpy     #7
-        bne     _loop1       
+        bne     _loop1
 
         clc
         ply
         sty     io_ctrl
-_out        
+_out
         ply
         plx
-        rts      
+        rts
 
 read_data
         phx
@@ -373,7 +373,7 @@ export_data
         ora     #$c0        ; Buffers are mapped under the io
         sta     args.ptr+1
 
-_loop        
+_loop
         dey
         lda     (args.ptr),y
         sta     (args.recv.buf),y
@@ -394,7 +394,7 @@ import_data
         stz     args.ptr+0
         ora     #$c0
         sta     args.ptr+1
-    
+
       ; Get the buffer size
         ldy     args.recv.buflen
 
@@ -436,7 +436,7 @@ import_ext
         lda     args.ptr+1  ; buffer in kernel memory
         ora     #$c0
         sta     args.ptr+1  ; Buffer in aliased kernel memory
-    
+
       ; Bring in our memory under the I/O
         lda     #4
         sta     io_ctrl

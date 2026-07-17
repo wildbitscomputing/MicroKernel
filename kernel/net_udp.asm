@@ -7,14 +7,14 @@
         .namespace  kernel
         .namespace  net
         .namespace  ipv4
-        
+
 udp     .struct
         .fill   ip.end
 sport   .fill   2       ; source port (big endian)
 dport   .fill   2       ; dest port (big endian)
 length  .fill   2       ; length (big endian)
 check   .fill   2       ; checksum (big endian)
-data    .ends        
+data    .ends
 
         .section    kernel
 
@@ -22,14 +22,14 @@ udp_accept
 
       ; Make sure the length is <256.
         ldy     #udp.length ; MSB
-        lda     (buf),y     
+        lda     (buf),y
         bne     _drop
-        
+
       ; Verify the checksum.
         jsr     udp_checksum
         jsr     check_sum
         bcs     _drop
-        
+
       ; Handle echo requests directly (good for testing).
         ldy     #udp.dport+0  ; MSB
         lda     (buf),y
@@ -38,7 +38,7 @@ udp_accept
         lda     (buf),y
         cmp     #7
         beq     _echo
-        
+
 _accept
         ; Queue an event.
         jsr     kernel.event.alloc
@@ -96,12 +96,12 @@ _echo
 
       ; Send the packet.
         jmp     ip_route
-        
+
 
 udp_send
     ; y->packet token
     ; Should probably queue instead of locking.
-        
+
         lda     #0
         sta     kernel.net.packet.dev,y
         jmp     kernel.net.accept
@@ -130,7 +130,7 @@ udp_send_buf
 
       ; Compute the checksum over the packet data.
         jsr     udp_checksum
-        
+
       ; Store the one's complement as the new checksum.
         ldy     #udp.check
         lda     check_h
@@ -147,8 +147,8 @@ udp_send_buf
 udp_checksum
 
       ; Initialize the sum with the proto and length.
-      ; The proto is from the pseudo-header and doesn't 
-      ; otherwise appear alone in the packet.  The length 
+      ; The proto is from the pseudo-header and doesn't
+      ; otherwise appear alone in the packet.  The length
       ; (in this stack) should be strictly less than 256.
 
         ldy     #ip.proto
@@ -158,7 +158,7 @@ udp_checksum
         clc
         adc     (buf),y
 
-        sta     check_l 
+        sta     check_l
         rol     a
         and     #1
         sta     check_h
@@ -167,13 +167,13 @@ udp_checksum
         ldy     #ip.src_ip
         lda     #8
         jsr     calc_sum
-        
+
       ; Add in the contents of the UDP section.
         ldy     #udp.length+1   ; LSB
         lda     (buf),y
         ldy     #ip.end
         jsr     calc_sum
-        
+
         rts
 
         .send

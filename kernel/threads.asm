@@ -5,14 +5,14 @@
         .cpu        "w65c02"
 
         .namespace  kernel
-        
+
 thread  .namespace
-           
+
         .section    dp
 start   .byte   ?   ; Set to request servicing.
 running .byte   ?   ; Set by the IRQ handler while the service is running.
 lock    .byte   ?
-        .send        
+        .send
 
         .section    kernel
 
@@ -20,7 +20,7 @@ init
         stz     running
         stz     start
         stz     lock
-        rts        
+        rts
 
 service
         jmp     kernel.net.process

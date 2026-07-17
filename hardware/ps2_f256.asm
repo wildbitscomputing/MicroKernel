@@ -4,7 +4,7 @@
 
             .cpu        "w65c02"
             .namespace  hardware
-            
+
             .mkstr      ps2_f256_dev,   "f256  "
             .mkstr      ps2_f256_init,  "Foenix PS2 keyboard driver"
             .mkstr      ps2_f256_open,  "Foenix PS2 keyboard opened"
@@ -26,19 +26,19 @@ KBD_FIFO_BYTE_CNT   .byte   ?   ; D646
 MSE_FIFO_BYTE_CNT   .byte   ?   ; D647
 
 
-                    .endv            
+                    .endv
 
 vectors     .kernel.device.mkdev    dev
 
 init
         ; Just install our vectors.
-    
+
             jsr     kernel.device.alloc
             bcs     _out
 
             txa
             jsr     hardware.ps2.auto.init
-            
+
             lda     #<vectors
             sta     kernel.src+0
             lda     #>vectors
@@ -52,7 +52,7 @@ init
 
             ;lda     #\IRQ
     	    ;jsr     irq.enable
-    	    
+
           ; Log (TODO: event)
             phy
             txa
@@ -65,7 +65,7 @@ init
 _out        rts
 
 
-dev_open    
+dev_open
             jsr     hardware.ps2.auto.open
 
             lda     #\IRQ
@@ -86,7 +86,7 @@ dev_open
             lda     #hardware.ps2_f256_open_str
             ;jsr     kernel.log.dev_message
             ply
-        
+
     	    clc
     	    rts
 dev_close
@@ -100,7 +100,7 @@ dev_data
             inc a
             sta $c000+\PORT
             stz io_ctrl
-.endif            
+.endif
 
 _loop
 .if false
@@ -116,7 +116,7 @@ _loop
             jsr     hardware.ps2.auto.dev_data
             plx
             bra     _loop
-            
+
 _done
             rts
 dev_status
@@ -141,21 +141,21 @@ dev_get
             ldy     #hardware.hid_str
             cmp     #kernel.device.get.CLASS
             beq     _found
-        
+
             ldy     #hardware.ps2_f256_dev_str
             cmp     #kernel.device.get.DEVICE
             beq     _found
-        
+
             ldy     #\STR
             cmp     #kernel.device.get.PORT
             beq     _found
-        
+
             sec
             bra     _out
 
 _found
             tya
-            clc        
+            clc
 _out
             ply
             rts

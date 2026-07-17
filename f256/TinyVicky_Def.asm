@@ -14,7 +14,7 @@ MASTER_CTRL_REG_H	    = $D001
 ; Reserved - TBD
 VKY_RESERVED_00         = $D002
 VKY_RESERVED_01         = $D003
-; 
+;
 BORDER_CTRL_REG         = $D004 ; Bit[0] - Enable (1 by default)  Bit[4..6]: X Scroll Offset ( Will scroll Left) (Acceptable Value: 0..7)
 Border_Ctrl_Enable      = $01
 BORDER_COLOR_B          = $D005
@@ -42,7 +42,7 @@ VKY_TXT_CURSOR_X_REG_L  = $D014
 VKY_TXT_CURSOR_X_REG_H  = $D015
 VKY_TXT_CURSOR_Y_REG_L  = $D016
 VKY_TXT_CURSOR_Y_REG_H  = $D017
-; Line Interrupt 
+; Line Interrupt
 VKY_LINE_IRQ_CTRL_REG   = $D018 ;[0] - Enable Line 0 - WRITE ONLY
 VKY_LINE_CMP_VALUE_LO  = $D019 ;Write Only [7:0]
 VKY_LINE_CMP_VALUE_HI  = $D01A ;Write Only [3:0]
@@ -50,4 +50,4 @@ VKY_LINE_CMP_VALUE_HI  = $D01A ;Write Only [3:0]
 VKY_PIXEL_X_POS_LO     = $D018 ; This is Where on the video line is the Pixel
 VKY_PIXEL_X_POS_HI     = $D019 ; Or what pixel is being displayed when the register is read
 VKY_LINE_Y_POS_LO      = $D01A ; This is the Line Value of the Raster
-VKY_LINE_Y_POS_HI      = $D01B ; 
+VKY_LINE_Y_POS_HI      = $D01B ;

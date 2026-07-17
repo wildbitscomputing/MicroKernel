@@ -65,7 +65,7 @@ _put    jsr     putch
         plp
         rts
 _hex    adc     #'a' - 10 - 1
-        bcc     _put    
-        
+        bcc     _put
+
         .send
         .endn

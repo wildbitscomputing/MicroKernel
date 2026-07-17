@@ -5,7 +5,7 @@
             .cpu    "w65c02"
 
             .namespace  hardware
-           
+
             .mkstr  init,   "Init: slot #."
             .mkstr  open,   "Open: #."
 
@@ -16,7 +16,7 @@
             .mkstr  none,   "      "
             .mkstr  uart_init,   "Serial port driver"
 
-        
+
 u16550      .macro  BASE=$cdf0, DIVISORS=0, IRQ=irq.serial, LINES=0
 
 
@@ -33,7 +33,7 @@ hold        .byte   ?
 
             .endv
             .endn
-            
+
             .virtual    \BASE
 
 UART_TRHB   .byte   ?   ; Transmit/Receive Hold Buffer
@@ -67,10 +67,10 @@ init
       ; Allocate the device table.
         jsr     kernel.device.alloc
         bcs     _out
-        
+
         txa
         sta     self.this,x
-        
+
       ; Install our vectors.
         lda     #<vectors
         sta     kernel.src
@@ -86,14 +86,14 @@ init
         jsr     kernel.log.dev_message
         ply
 
-_out    rts       
+_out    rts
 
 close
         lda     #0
         sta     UART_MCR
         sta     UART_IER
         lda     #FCR_FIFO_ENABLE | FCR_CLEAR_RX | FCR_CLEAR_TX | FCR_RX_FIFO_8
-        sta     UART_FCR        
+        sta     UART_FCR
         rts
 
 
@@ -117,12 +117,12 @@ uart_open:
         lda     #LCR_8N1 | LCR_DLB
         sta     UART_LCR
         pla
- 
+
       ; Set the BPS
         sta     UART_DLH
         tya
         sta     UART_DLL
-        
+
       ; Enable 64-byte fifo
         lda     #32
         sta     UART_FCR
@@ -130,7 +130,7 @@ uart_open:
       ; Close the divisor latch; 8N1.
         lda     #LCR_8N1
         sta     UART_LCR
-        
+
       ; Clear any data errors
         lda     UART_LSR
 .if false
@@ -152,11 +152,11 @@ uart_open:
         txa
         ldy     #\IRQ
         jsr     irq.install
-        
+
       ; Enable the hardware interrupt.
         lda     #\IRQ
     	jsr     irq.enable
-    	
+
         ; Raise DTR and RTR, enable interrupts from the chip.
         lda     #MCR_DTR | MCR_RTS | MCR_OUT2
         sta     UART_MCR
@@ -171,12 +171,12 @@ uart_open:
 
         jmp     tx_resume
         clc
-        
+
 _out    rts
 
 send_status:
     ; Report changes to DSR, RI, CD
-    
+
         lda     self.modem,y
         sta     self.hold,y
 
@@ -199,15 +199,15 @@ _ects
         beq     _edsr
         jsr     ddsr
         lda     self.modem,y
-_edsr                
-    
-; Changes to CD    
+_edsr
+
+; Changes to CD
         bit     #MSR_DCD
         beq     _edcd
         jsr     send_cd
         lda     self.modem,y
 _edcd
-        
+
 ; Ring
         bit     #MSR_TERI
         beq     _eri
@@ -233,8 +233,8 @@ dcts
         sta     UART_IER
         plp
         cli
-        rts        
-        
+        rts
+
 
 send_cd
         bit     #MSR_CD
@@ -251,21 +251,21 @@ uart_get
         ldy     #hardware.serial_str
         cmp     #kernel.device.get.CLASS
         beq     _found
-        
+
         ldy     #hardware.uart_str
         cmp     #kernel.device.get.DEVICE
         beq     _found
-        
+
         ldy     #hardware.db9_str
         cmp     #kernel.device.get.PORT
         beq     _found
-        
+
         sec
         bra     _out
 
 _found
         tya
-        clc        
+        clc
 _out
         ply
         rts
@@ -276,14 +276,14 @@ uart_set
 
         cmp     #kernel.device.set.RX_PAUSE
         beq     rx_pause
-        
+
         cmp     #kernel.device.set.RX_RESUME
         beq     rx_resume
 
         ldx     #kernel.err.REQUEST
         sec
         rts
-        
+
 tx_resume
     ; Enable transmit interrupts.
     ; Could pre-load the first byte.
@@ -355,11 +355,11 @@ _busy
 uart_close
       ; Reset the device
         jsr     close
-    
+
       ; Disable the hardware interrupt.
         lda     #\IRQ
     	jmp     irq.disable
-    	
+
 uart_fetch
 uart_status
         sec
@@ -391,7 +391,7 @@ _table  .word   uart_lines
 uart_lines
         ;jsr    send_status
         lda     UART_MSR
-        bra     uart_loop 
+        bra     uart_loop
 
 uart_rx
         lda     UART_LSR
@@ -420,17 +420,17 @@ uart_rx2
         sta     UART_MCR
         bra     uart_loop
 .endif
-        
+
 uart_err
         lda     UART_LSR
-        
+
 .if false
  lda #2
  sta io_ctrl
  dec $c000+80*2+8
  stz io_ctrl
 .endif
-        bra     uart_loop        
+        bra     uart_loop
 
         sta     UART_SR
         ldx     self.lower,y
@@ -441,15 +441,15 @@ uart_err
         bne     _bdone
         lda     #kernel.device.status.INTERRUPT
         jsr     kernel.device.dev.status
-_bdone        
-                
+_bdone
+
       ; Report data errors
         lda     UART_SR
         bit     #LSR_ERR_FRAME | LSR_ERR_PARITY
         bne     _edone
         lda     #kernel.device.status.DATA_ERROR
         jsr     kernel.device.dev.status
-_edone        
+_edone
 
         bra     uart_loop
 
@@ -479,7 +479,7 @@ UINT_SLEEP_MODE = $10       ; Enable Sleep Mode (16750)
 UINT_MODEM_STATUS = $08     ; Enable Modem Status Interrupt
 UINT_LINE_STATUS = $04      ; Enable Receiver Line Status Interupt
 UINT_THR_EMPTY = $02        ; Enable Transmit Holding Register Empty interrupt
-UINT_DATA_AVAIL = $01       ; Enable Recieve Data Available interupt   
+UINT_DATA_AVAIL = $01       ; Enable Recieve Data Available interupt
 
 ; Interrupt Identification Register Codes
 IIR_FIFO_ENABLED = $80      ; FIFO is enabled

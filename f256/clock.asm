@@ -8,7 +8,7 @@
 clock   .namespace
 
         .section    kernel2
-        
+
 rtc     .hardware.rtc_bq4802
 
 init
@@ -17,4 +17,4 @@ init
         .send
         .endn
         .endn
-        
+

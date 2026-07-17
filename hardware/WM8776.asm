@@ -21,7 +21,7 @@ self        .namespace
 this        .byte       ?       ; self
 bits        .byte       ?       ; device enable bits
             .endv
-            .endn            
+            .endn
 
 vectors     .kernel.device.mkdev    dev
 
@@ -38,7 +38,7 @@ init
         lda     #0  ; All channels off
         jsr     send_channel_bits
         bcc     _done
-        
+
         jsr     kernel.device.free
         sec
 _err    rts
@@ -56,7 +56,7 @@ dev_close
     ; Disable all audio sources.
         lda     #0
         jmp     send_channel_bits
-        
+
 dev_data
 dev_fetch
 dev_status
@@ -75,21 +75,21 @@ dev_get
         ldy     #hardware.serial_str
         cmp     #kernel.device.get.CLASS
         beq     _found
-        
+
         ldy     #hardware.uart_str
         cmp     #kernel.device.get.DEVICE
         beq     _found
-        
+
         ldy     #hardware.db9_str
         cmp     #kernel.device.get.PORT
         beq     _found
-        
+
         sec
         bra     _out
 
 _found
         tya
-        clc        
+        clc
 _out
         ply
         rts
@@ -101,7 +101,7 @@ dev_set
 
         cmp     #kernel.device.set.CH_DISABLE
         beq     channel_disable
-        
+
         cmp     #kernel.device.set.VOLUME
         beq     set_volume
 
@@ -111,7 +111,7 @@ dev_set
         ldx     #kernel.err.REQUEST
         sec
         rts
-        
+
 set_volume
         clc
         rts
@@ -163,7 +163,7 @@ _loop   dey
         asl     a
         dey
         bra     _loop
-        
+
 _out    rts
 
 
@@ -178,7 +178,7 @@ send_channel_bits
         lsr     a
         ldy     #%0010101_0     ; Input MUX control.
         jsr     WM8776_send     ; Ignore errors.
-        
+
       ; Send the output MUX bits
         ldy     self.bits,x
         tya                     ; L5--L1=64--4, AUX=2, DAC=1
@@ -188,7 +188,7 @@ send_channel_bits
         ora     #4              ; Enable the line mixer input
 _send   ldy     #%0010110_0     ; Output MUX control.
         jsr     WM8776_send
-        
+
 _out    rts
 
 

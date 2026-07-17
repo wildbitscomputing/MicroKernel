@@ -3,12 +3,12 @@
 ; SPDX-License-Identifier: GPL-3.0-only
 
             .cpu        "w65c02"
-            
+
             .namespace  kernel
 
             .section    pages
 Events      .fill       256     ; Events (with "next" pointer")
-            .send          
+            .send
 
             .namespace  event
 
@@ -30,7 +30,7 @@ entries     .byte       ?       ; free list
 in          .byte       ?       ; Incoming events
 out         .byte       ?       ; Outgoing events
             .send
-            
+
 
             .section    kernel
 
@@ -52,7 +52,7 @@ _loop       jsr     zero
             adc     #8
             tay
             bne     _loop
-            
+
             clc
             rts
 
@@ -78,7 +78,7 @@ _buf
             lda     entry.buf,y
             beq     _ext
             jsr     kernel.page.free
-_ext            
+_ext
           ; If no page in ext, zero the event.
             lda     entry.ext,y
             beq     _zero
@@ -90,7 +90,7 @@ _ext
           ; Ext contained a different page; free it.
             jsr     kernel.page.free
 
-_zero       
+_zero
           ; Zero out the event.
             jsr     zero
 
@@ -105,7 +105,7 @@ _zero
             pla
             clc
             rts
-            
+
 alloc
     ; Y <- next token, or carry set.
     ; Thread safe.
@@ -138,12 +138,12 @@ enque
             dec     user.events.pending  ; Backwards for BIT.
             clc
             rts
-            
+
 deque
     ; OUT:  Y = dequed token; carry set on empty
     ; Only called by the user-thread.
 
-            pha    
+            pha
 
             ldy     out
             bne     _found
@@ -151,7 +151,7 @@ deque
             sec
             ldy     in
             beq     _out
-            
+
           ; Safely take the whole "in" list.
             php
             sei
@@ -171,16 +171,16 @@ _loop       lda     entry.next,y
           ; "Find" the head just where we left it :).
             ldy      out
 
-_found      
+_found
             lda     entry.next,y
             sta     out
 
             inc     user.events.pending ; Backwards for BIT.
             clc
-            
+
 _out        pla
             rts
-            
+
             .send
             .endn
             .endn

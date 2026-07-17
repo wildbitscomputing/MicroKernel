@@ -9,8 +9,8 @@ fs          .namespace
 
             .virtual    0
 ERANGE      .byte       ?       ; Device out of range
-EDEV        .byte       ?       ; No such device  
-EREADY      .byte       ?       ; Device not ready          
+EDEV        .byte       ?       ; No such device
+EREADY      .byte       ?       ; Device not ready
 ESTREAM     .byte       ?       ; Out of streams
 EEVENT      .byte       ?       ; Out of events
 EBUF        .byte       ?       ; Out of buffers
@@ -39,7 +39,7 @@ MAX_ENTRIES = 8
 
 entry       .namespace
             .virtual    Tokens
-index       .byte   ?   ; 0..(MAX_ENTRIES-1)            
+index       .byte   ?   ; 0..(MAX_ENTRIES-1)
 driver      .byte   ?   ; offset to installed bus driver
 device      .byte   ?   ; per-driver device number (0 for SD, 8/9 for IEC)
 partition   .byte   ?   ; optional partition id
@@ -57,10 +57,10 @@ cookie      .byte       ?
 requested   .byte       ?
 fulfilled   .byte       ?
             .endv
-            .endn            
+            .endn
 
             .section    kmem
-registered  .byte       ?            
+registered  .byte       ?
 entries     .fill       MAX_ENTRIES ; Just a table for now.
             .send
 
@@ -85,7 +85,7 @@ _loop       stz     entries,x
 register
     ; IN:   Y->entry token
     ; OUT:  Carry clear on success
-    
+
             pha
             phx
 
@@ -93,12 +93,12 @@ register
             ldx     entry.index,y
             cpx     #MAX_ENTRIES
             bcs     _out
-            
+
           ; Make sure it isn't already registered
             lda     entries,x
             cmp     #1
             bcs     _out
-            
+
           ; Install it
             tya
             sta     entries,x
@@ -107,7 +107,7 @@ _out
             plx
             pla
             rts
-            
+
 
 get_drives
     ; OUT: A contains a bit-set of registered devices.
@@ -136,15 +136,15 @@ open
             asl     a
             tax
             jmp     (_modes,x)
-_out        
+_out
             sec
             rts
 _modes      .word   open_read, open_new
-        
+
 
 open_common
     ; OUT:  Y->token, X->stream, carry set on error
-    
+
           ; Make sure the user has given us a valid device
             lda     #ERANGE
             ldx     $2000+kernel.args.file.open.drive
@@ -160,8 +160,8 @@ open_common
           ; Ask the device if it's ready.
             ldx     entry.driver,y
             lda     #kernel.device.get.READY
-            jsr     kernel.device.dev.get   
-            lda     #EREADY  
+            jsr     kernel.device.dev.get
+            lda     #EREADY
             bcs     _out
 
           ; X->new stream
@@ -179,7 +179,7 @@ open_common
 
             lda     entry.partition,y
             sta     kernel.stream.entry.partition,x
-            
+
             stz     kernel.stream.entry.status,x
             stz     kernel.stream.entry.eof,x
 
@@ -201,7 +201,7 @@ open_common
             jsr     kernel.page.alloc_a
             bcs     _event
             sta     args.buf,y
-            
+
           ; Set the path length; don't copy if it is zero.
             lda     $2000+kernel.args.file.open.fname_len
             beq     _default
@@ -220,7 +220,7 @@ _default
             lda     #1
             sta     args.requested,y
             clc
-_out            
+_out
             rts
 
 _event  ; Free event and stream (no bufs)
@@ -228,18 +228,18 @@ _event  ; Free event and stream (no bufs)
             jsr     _stream
             lda     #EBUF
             rts
-            
+
 _stream ; Free stream (b/c out of events)
             txa
             jsr     kernel.stream.free
             lda     #EEVENT
             sec
             bra     _out
-           
+
 open_read
             jsr     open_common
             bcs     _out
- 
+
           ; Set the command
             lda     #OPEN
             sta     args.command,y
@@ -251,7 +251,7 @@ open_read
             lda     kernel.stream.entry.driver,x
             tax
             jsr     kernel.device.dev.send
-            
+
           ; Return the stream
             pla
 _out
@@ -260,7 +260,7 @@ _out
 open_dir
             jsr     open_common ; Sets cookie
             bcs     _out
- 
+
           ; Set the command
             lda     #OPEN_DIR
             sta     args.command,y
@@ -272,7 +272,7 @@ open_dir
             lda     kernel.stream.entry.driver,x
             tax
             jsr     kernel.device.dev.send
-            
+
           ; Return the stream
             pla
 _out
@@ -281,7 +281,7 @@ _out
 open_new
             jsr     open_common
             bcs     _out
- 
+
           ; Set the command
             lda     #OPEN_NEW
             sta     args.command,y
@@ -293,7 +293,7 @@ open_new
             lda     kernel.stream.entry.driver,x
             tax
             jsr     kernel.device.dev.send
-            
+
           ; Return the stream
             pla
 _out
@@ -305,7 +305,7 @@ read
 
             jsr     event.alloc
             bcs     _out
-        
+
           ; X->stream
             ldx     $2000+kernel.args.file.read.stream
             jsr     stream_ok
@@ -322,7 +322,7 @@ read
           ; Install the cookie
             lda     kernel.stream.entry.cookie,x
             sta     args.cookie,y
-            
+
           ; Install the requested byte-count
             lda     $2000+kernel.args.file.read.buflen
             sta     args.requested,y
@@ -331,7 +331,7 @@ read
             jsr     kernel.page.alloc_a
             bcs     _free
             sta     args.buf,y
-            
+
           ; Install the extended buffer
             jsr     kernel.page.alloc_a
             bcs     _free  ; event.free frees the page in args.buf
@@ -347,12 +347,12 @@ _free
             sec
 _out
             rts
-            
+
 write
           ; Allocate the event
             jsr     event.alloc
             bcs     _out
-            
+
           ; X->stream
             ldx     $2000+kernel.args.file.write.stream
             jsr     stream_ok
@@ -375,7 +375,7 @@ write
             bcs     _event
             sta     args.buf,y
             jsr     import_data
-                        
+
           ; Install the byte count
             lda     $2000+kernel.args.file.write.buflen
             sta     args.requested,y
@@ -383,7 +383,7 @@ write
           ; Dispatch
             lda     kernel.stream.entry.driver,x
             tax
-            jmp     kernel.device.dev.send            
+            jmp     kernel.device.dev.send
 
 _event
             jsr     kernel.event.free
@@ -396,11 +396,11 @@ seek
           ; Allocate the event
             jsr     event.alloc
             bcs     _out
-            
+
           ; Install the command
             lda     #SEEK
             sta     args.command,y
-            
+
           ; Install the stream; leaves X->stream
             lda     $2000+kernel.args.file.seek.stream
             sta     args.stream,y
@@ -437,11 +437,11 @@ close
           ; Allocate the event
             jsr     event.alloc
             bcs     _out
-            
+
           ; Install the command
             lda     #CLOSE
             sta     args.command,y
-            
+
             bra     close_common
 _out
             rts
@@ -450,11 +450,11 @@ close_dir
           ; Allocate the event
             jsr     event.alloc
             bcs     _out
-            
+
           ; Install the command
             lda     #CLOSE_DIR
             sta     args.command,y
-            
+
             bra     close_common
 _out
             rts
@@ -519,12 +519,12 @@ rename
             pha
             jsr    open_common
             pla
-            bcs     _free 
+            bcs     _free
 
           ; Set the new name's block while we have it
             sta     args.ext,y
             sta     $2000+kernel.args.ptr+1
-            
+
           ; Set the new name's length
             lda     $2000+kernel.args.file.rename.new_len
             sta     $2000+kernel.args.ptr+0
@@ -533,7 +533,7 @@ rename
           ; Import the user's data
             jsr     import_ext
             ;jsr     print_ext
-            
+
           ; Set the command
             lda     #RENAME
             sta     args.command,y
@@ -545,12 +545,12 @@ rename
             lda     kernel.stream.entry.driver,x
             tax
             jsr     kernel.device.dev.send
-            
+
           ; Return the stream
             pla
             clc
             rts
-            
+
 _free
             jsr     kernel.page.free
             sec
@@ -560,7 +560,7 @@ _out
 delete
             jsr     open_common
             bcs     _out
-            
+
           ; Set the command
             lda     #DELETE
             sta     args.command,y
@@ -572,7 +572,7 @@ delete
             lda     kernel.stream.entry.driver,x
             tax
             jsr     kernel.device.dev.send
-            
+
           ; Return the stream
             pla
 _out
@@ -581,7 +581,7 @@ _out
 mkfs
             jsr     open_common
             bcs     _out
-            
+
           ; Set the command
             lda     #MKFS
             sta     args.command,y
@@ -593,7 +593,7 @@ mkfs
             lda     kernel.stream.entry.driver,x
             tax
             jsr     kernel.device.dev.send
-            
+
           ; Return the stream
             pla
 _out
@@ -602,7 +602,7 @@ _out
 format
             jsr     open_common
             bcs     _out
-            
+
           ; Set the command
             lda     #FORMAT
             sta     args.command,y
@@ -614,7 +614,7 @@ format
             lda     kernel.stream.entry.driver,x
             tax
             jsr     kernel.device.dev.send
-            
+
           ; Return the stream
             pla
 _out
@@ -623,7 +623,7 @@ _out
 mkdir
             jsr     open_common
             bcs     _out
-            
+
           ; Set the command
             lda     #MKDIR
             sta     args.command,y
@@ -635,7 +635,7 @@ mkdir
             lda     kernel.stream.entry.driver,x
             tax
             jsr     kernel.device.dev.send
-            
+
           ; Return the stream
             pla
 _out

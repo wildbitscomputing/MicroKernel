@@ -14,7 +14,7 @@ RMETA   .byte   ?
 CAPS    .byte   ?
         .endv
 
-        .virtual    $80        
+        .virtual    $80
 POWER   .byte   ?
 F1      .byte   ?
 F2      .byte   ?

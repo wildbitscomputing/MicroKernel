@@ -6,8 +6,8 @@
 
         .namespace  kernel
         .namespace  net
-ipv4    .namespace        
-        
+ipv4    .namespace
+
 
 ip      .struct
 verlen  .byte   ?
@@ -30,14 +30,14 @@ check_l .byte   ?
 check_x .byte   ?
 count   .byte   ?
 good    .byte   ?
-        .send        
+        .send
 
         .section    kmem
 ip_addr .fill       4
         .send
 
         .section    kernel
-        
+
 ip_accept
 
       ; Ensure that odd-length packets
@@ -70,18 +70,18 @@ ip_out
 
         cmp     #17 ; UDP
         beq     _udp
-        
+
         sec
 _out    rts
 
 _tcp    jmp     tcp_send_buf
 _udp    jmp     udp_send_buf
 
-        
+
 ip_dispatch
         ldy     #ip.proto
         lda     (buf),y
-        
+
         cmp     #1  ; ICMP
         beq     _icmp
 
@@ -90,7 +90,7 @@ ip_dispatch
 
         cmp     #17 ; UDP
         beq     _udp
-        
+
         sec
 _out    rts
 
@@ -110,7 +110,7 @@ ip_check
         lda     #$45
         eor     (buf),y
         bne     _drop
-        
+
       ; Check length
         ldy     #ip.len
         lda     (buf),y
@@ -121,7 +121,7 @@ ip_check
         bcc     _chk    ; smaller is an error
         ;eor     len
         ;bne     _chk
-        
+
       ; Check flags
         ldy     #ip.flags
         lda     #$3f
@@ -147,7 +147,7 @@ ip_check
         jsr     dprint
         rts
 
-_chk   
+_chk
         tay
         lda     #40
         jsr     dprint
@@ -163,7 +163,7 @@ _chk
         lda     #2
         sta     io_ctrl
         inc     $c000+80*2+9
-        sty     io_ctrl        
+        sty     io_ctrl
 .endif
 
         sec
@@ -174,10 +174,10 @@ _drop
         lda     #2
         sta     io_ctrl
         inc     $c000+80*2+11
-        sty     io_ctrl  
-.endif        
-        sec 
-        rts        
+        sty     io_ctrl
+.endif
+        sec
+        rts
 
 dprint rts
         stx     check_x
@@ -227,7 +227,7 @@ calc_sum
         lda     #1
         sta     alt+0
         clc
-_loop   
+_loop
         lda     check_l
         adc     (alt),y
         sta     check_l
@@ -265,7 +265,7 @@ _loop   lda     (buf),y
 
 ip_route jmp ip_send
         ldy     #ip.dest_ip+3
-_loop        
+_loop
         lda     (buf),y
         cmp     ip_addr-ip.dest_ip,y
         bne     ip_send
@@ -289,7 +289,7 @@ ip_send
         sta     (buf),y
         ldy     #ip.check_h
         sta     (buf),y
-        
+
       ; Compute the new checksum
         ldy     #0
         lda     #ip.end
@@ -306,14 +306,14 @@ ip_send
         lda     check_h
         eor     #$ff
         sta     (buf),y
-        
+
         jsr     pkt_dump
 
       ; Send the packet
         lda     pkt
         ldx     kernel.net.ipv4.router
-        jmp     kernel.device.dev.send     
-       
+        jmp     kernel.device.dev.send
+
         .cpu    "w65c02"
 pkt_dump rts
         phx
@@ -323,7 +323,7 @@ pkt_dump rts
         sta     $1
 
         ldx     #0
-        
+
 .if false
  ldy pkt
  tya
@@ -338,7 +338,7 @@ pkt_dump rts
  jsr _print_byte
  lda kernel.device.devices.send+1,y
  jsr _print_byte
-.endif 
+.endif
 
         ldy     #0
 _loop   lda     (buf),y
@@ -346,7 +346,7 @@ _loop   lda     (buf),y
         iny
         cpy     kernel.net.len
         bne     _loop
-        
+
         lda     #32
 _clear  sta     $c000,x
         inx
@@ -356,8 +356,8 @@ _clear  sta     $c000,x
 
         ply
         plx
-        rts 
-             
+        rts
+
 print_byte
         pha
         lsr     a
@@ -387,4 +387,4 @@ _print
         .endn
         .endn
         .endn
-        
+

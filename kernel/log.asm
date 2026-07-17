@@ -3,7 +3,7 @@
 ; SPDX-License-Identifier: GPL-3.0-only
 
             .cpu        "w65c02"
-            
+
             .namespace  kernel
 log         .namespace
 
@@ -22,7 +22,7 @@ tail        .byte       ?
 ptr
 ptr_l       .byte       ?
 ptr_h       .byte       ?
-            .send            
+            .send
 
             .section    kmem
 ring        .fill       RING_SIZE
@@ -50,7 +50,7 @@ init
 
 dev_message
     ; A = string, X = dev, Y = arg
-    
+
             inc     kernel.thread.lock
             sty     tmp
 
@@ -62,12 +62,12 @@ dev_message
             sta     entry.device,y
             lda     tmp
             sta     entry.arg,y
-            
+
             jsr     insert
             bcc     _out
             jsr     kernel.token.free
             sec
-_out        
+_out
             ldy     tmp
             dec     kernel.thread.lock
             rts
@@ -75,7 +75,7 @@ _out
 insert
     ; Inserts the value in Y (a token) into the ring.
     ; Carry clear on success.  Modifies A.
-    
+
             inc     kernel.thread.lock
             phx
 
@@ -91,9 +91,9 @@ _cmp        cpx     tail
             beq     _out
             stx     head
             clc
-_out        
+_out
             plx
-            dec     kernel.thread.lock            
+            dec     kernel.thread.lock
             rts
 
 
@@ -108,12 +108,12 @@ remove
             cpx     #RING_SIZE
             bne     _save
             ldx     #0
-_save       
+_save
             stx     tail
             clc
 _out
             plx
-            rts            
+            rts
 
 next
             jsr     remove
@@ -126,7 +126,7 @@ _done
 render
             pha
             phy
-            
+
             lda     kargs.buf,x
             pha
 
@@ -144,7 +144,7 @@ render
             pla
             clc
             rts
-            
+
 print_log
             lda     entry.arg,y
             sta     arg
@@ -210,9 +210,9 @@ _next       iny
             bra     _loop
 _arg
             lda     arg
-            lsr     a            
-            lsr     a            
-            lsr     a            
+            lsr     a
+            lsr     a
+            lsr     a
             lsr     a
             jsr     _hex
             lda     arg
@@ -224,24 +224,24 @@ _hex
             bcs     _char
             ora     #'0'
             jmp     append
-_char       
+_char
             adc     #'a'-11
             jmp     append
 _done
             clc
             ply
             rts
-                                    
+
 append
             sta     (kargs.buf,x)
             inc     kargs.buf+0,x
             bne     _out
             inc     kargs.buf+1,x
-_out            
+_out
             inc     kargs.used,x
             rts
 
             .send
             .endn
             .endn
-            
+

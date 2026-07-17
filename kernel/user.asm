@@ -24,7 +24,7 @@ buf         .fill       256
 
             .section    kmem
 event       .fill       16
-            .send            
+            .send
 
             .section    global
 
@@ -45,7 +45,7 @@ _loop
             sbc     mark
             cmp     #2
             bcc     _loop
-_done  
+_done
             rts
 _log
             sty     args.log
@@ -65,7 +65,7 @@ _log
 
 print_string
             ldy     #0
-_loop       
+_loop
             lda     (args.buf),y
             beq     _out
             jsr     platform.console.puts
@@ -73,7 +73,7 @@ _loop
             bra     _loop
 _out
             clc
-            rts            
+            rts
 
 
             .send

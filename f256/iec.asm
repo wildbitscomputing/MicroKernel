@@ -118,7 +118,7 @@ test_DATA   .proc
     ; Quickly peek at the external state of the DATA line,
     ; hopefully in a way that won't get detected by the
     ; other devices.
-    
+
             pha
             phx
             phy
@@ -393,7 +393,7 @@ atn_common
 
           ; ATN bytes are technically never EOI bytes
             stz     self.eoi_pending
- 
+
             jmp send_common
 
 _err
@@ -883,7 +883,7 @@ _out
         rts
 
 waste_time rts
-            
+
             .send
 
 .if IEC_DEBUG

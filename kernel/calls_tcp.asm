@@ -49,7 +49,7 @@ small_windows_test
             cmp     #$12
             beq     _out    ; This is a K.
             lda     #0
-_out        
+_out
             sty     io_ctrl
             ora     #0
             clc
@@ -59,7 +59,7 @@ tcp_open
     ; Running mostly in user-space.
     ; kernel.args.net.socket points to the user's socket block.
     ; kernel.args.net.src/dest/ip contain the init values.
-    
+
             pha
             phx
             phy
@@ -78,7 +78,7 @@ tcp_open
             ldy     #kernel.net.ipv4.ip.proto
             lda     #6
             sta     (kernel.args.net.socket),y
-            
+
           ; Use smaller windows if K+DIP6.
             jsr     small_windows_test
             beq     _std_win
@@ -118,7 +118,7 @@ _init_seq
             stx     io_ctrl
             ldy     #tcp.header.sport+1
             sta     (kernel.args.net.socket),y
-.endif            
+.endif
           ; Consider the MSS option part of the payload.
             lda     #4
             ldy     #tcp.tx_pending
@@ -137,7 +137,7 @@ _init_seq
             lda     #$50
             ldy     #kernel.net.ipv4.tcp.offset
             sta     (kernel.args.net.socket),y
-            
+
           ; "ACK" the MSS option (the SYN is 1, so the ack will zero tx_pending).
             lda     #1
             ldy     #tcp.tx_pending
@@ -149,12 +149,12 @@ _init_seq
             sta     (kernel.args.net.socket),y
 
             clc
-_out        
+_out
             ply
             plx
             pla
             rts
-            
+
 _init       .byte   $00, $00, $00, $00      ; Initial sequence
             .byte   $00, $00, $00, $00      ; Initial ack
             .byte   $60, $02, $00, $d0      ; One option (MSS), SYN, WIN
@@ -173,7 +173,7 @@ tcp_send
     ; Copy what data we can into the send queue and send the packet.
     ; IN:   buf/len -> socket, ext/len -> data
     ; OUT:  accepted = # of bytes accepted
-    
+
             phx
             phy
 
@@ -183,7 +183,7 @@ tcp_send
             cmp     #STATE.ESTABLISHED
             sec
             bne     _out
-          
+
           ; A = # of bytes remaining in the queue
             ldy     #tcp.tx_pending
             lda     #128
@@ -232,7 +232,7 @@ _send
             ldy     #tcp.snd_wnd
             lda     (kernel.args.net.socket),y
             beq     _out
-            
+
           ; Send the packet
             lda     #TCP_ACK|TCP_PSH
             jsr     tcp_reply
@@ -278,7 +278,7 @@ socket_match
             jsr     _cmp
             stz     kernel.args.ptr+0
             bcs     _out
-          
+
           ; Compare their dest port to our source port
             ldy     #tcp.header.dport+0
             lda     (kernel.args.ptr),y
@@ -292,7 +292,7 @@ socket_match
             eor     (kernel.args.net.socket),y
             cmp     #1
             bcs     _out
-            
+
           ; Compare our dest IP to their src IP
             lda     #252
             sta     kernel.args.ptr+0
@@ -311,7 +311,7 @@ _out
             tya
             ply
             plx
-            rts 
+            rts
 _cmp
             lda     (kernel.args.net.socket),y
             eor     (kernel.args.ptr),y
@@ -320,7 +320,7 @@ _cmp
             dex
             bne     _cmp
 _result     cmp     #1      ; Set carry if different
-            rts            
+            rts
 
 tcp_accept
 tcp_reject
@@ -335,8 +335,8 @@ tcp_recv
     ; arg should contain:
     ;   - the socket in buf
     ;   - the user buffer in ext/extlen
-    ; 
-    
+    ;
+
             phx
             phy
 
@@ -361,7 +361,7 @@ tcp_recv
             eor     (kernel.args.net.socket),y
             cmp     #1
             bcs     _out
- 
+
           ; Clear the flags (TODO: REMOVE)
             lda     #0
             ldy     #tcp.header.flags
@@ -374,15 +374,15 @@ tcp_recv
             ldy     #tcp.state
             lda     (kernel.args.net.socket),y
             tay
-            
+
 _out
             pla
             sta     io_ctrl
             tya
             ply
             plx
-            rts     
-    
+            rts
+
 
 tcp_close
             phx
@@ -401,7 +401,7 @@ tcp_close
 ; Packet testing functions
 
 seq_is_valid
-  
+
         ; For now, just verify that it matches our last ack.
         ; Eventually, we should handle packets which straddle
         ; our latest ack.
@@ -433,15 +433,15 @@ seq_is_valid
             ldy     #tcp.header.ack+0
             sbc     (kernel.args.net.socket),y
             bpl     _drop   ; packet from the future, drop
-            bmi     _ack    ; TODO: handle overlap 
+            bmi     _ack    ; TODO: handle overlap
 
           ; If the packet is ahead of us, ack or drop
             bpl     _ack
-            
+
           ; If the packet is behind us, we should check to see
           ; if it none-the-less contains usable data, but for now.
           ; ack or drop.
-          
+
 _ack
           ; If the packet contains an RST, drop it.
             ldy     #tcp.header.flags
@@ -449,7 +449,7 @@ _ack
             and     #TCP_RST
             cmp     #1
             bcs     _done
-            
+
           ; Otherwise, ACK the packet and ignore it.
             jsr     gratuitous_ack
             sec
@@ -472,31 +472,31 @@ tcp_data
             and     #$f0
             lsr     a
             lsr     a
-            
+
           ; Add the IP header size
             clc     ; SYN bit ... shouldn't be set...
             adc     #kernel.net.ipv4.ip.end
-            
+
           ; Stash the data start
             pha
 
           ; Negate the total.
             eor     #$ff
             inc     a
-            
+
           ; Add the total packet length
             ldy     #kernel.net.ipv4.ip.len+1   ; LSB
             adc     (kernel.args.ptr),y
-            
+
           ; Pop the data start into Y
             ply
-            
+
             rts
-            
+
 sbc_ack
     ; y = compare offset in socket
     ; clear carry to pre-subtract 1 from the result.
-    
+
           ; Push the value of the src long
             lda     (kernel.args.net.socket),y
             pha
@@ -512,7 +512,7 @@ sbc_ack
 
           ; Y->ack
             ldy     #tcp.header.ack+3
-            
+
           ; Subtract
             pla
             sbc     (kernel.args.ptr),y
@@ -527,7 +527,7 @@ sbc_ack
             sbc     (kernel.args.ptr),y
 
             rts
-            
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ; Packet sending functions
 
@@ -544,7 +544,7 @@ tcp_queue
 
     ; kernel.args.net.socket contains the packet to send.
     ; We're running in the user map at the time this is called.
- 
+
           ; Alloc a token and a buffer (from the kernel map)
             ldx     mmu_ctrl
             stz     mmu_ctrl
@@ -557,7 +557,7 @@ tcp_queue
             sec
 _alloc      stx     mmu_ctrl
             bcs     _out
-            
+
           ; Mount it in our pointer in the user's DP.
             stz     kernel.args.ptr+0
             ora     #$c0
@@ -606,28 +606,28 @@ _loop       dey
 
           ; Restore the user's io_map
             stx     io_ctrl
-            
+
           ; Restore the token pointer
             ply
-            
+
         ; Send the packet
-        
+
           ; Switch to the kernel map for the send
             ldx     mmu_ctrl
             stz     mmu_ctrl
 
           ; Set the buffer length
             sta     kernel.net.packet.len,y
-            
+
           ; Make the call
             jsr     kernel.net.ipv4.tcp_send
 
           ; Switch back to the user's map
             stx     mmu_ctrl
             clc
-_out        
+_out
             rts
-                   
+
 
 gratuitous_ack
     ; This is awkward, but should be infrequent;
@@ -637,7 +637,7 @@ gratuitous_ack
             ldy     #tcp.header.ack+0
             ldx     #4
 _save       lda     (kernel.args.net.socket),y
-            pha       
+            pha
             iny
             dex
             bne     _save
@@ -673,7 +673,7 @@ _save       lda     (kernel.args.net.socket),y
           ; Send the ack
             lda     #TCP_ACK
             jsr     tcp_reply   ; Okay if we push data...
-            
+
           ; Restore the original ack
             ldy     #tcp.header.ack+3
             ldx     #4
@@ -709,26 +709,26 @@ accept_ack
             lda     #0
             ldy     #tcp.tx_pending
             sta     (kernel.args.net.socket),y
-            
+
           ; Advance our sequence accordingly
 
             ldy     #tcp.header.ack+3
-            lda     (kernel.args.ptr),y            
+            lda     (kernel.args.ptr),y
             ldy     #tcp.header.seq+3
             sta     (kernel.args.net.socket),y
 
             ldy     #tcp.header.ack+2
-            lda     (kernel.args.ptr),y            
+            lda     (kernel.args.ptr),y
             ldy     #tcp.header.seq+2
             sta     (kernel.args.net.socket),y
 
             ldy     #tcp.header.ack+1
-            lda     (kernel.args.ptr),y            
+            lda     (kernel.args.ptr),y
             ldy     #tcp.header.seq+1
             sta     (kernel.args.net.socket),y
 
             ldy     #tcp.header.ack+0
-            lda     (kernel.args.ptr),y            
+            lda     (kernel.args.ptr),y
             ldy     #tcp.header.seq+0
             sta     (kernel.args.net.socket),y
 _done
@@ -736,7 +736,7 @@ _done
 
 accept_seq
             lda     #0
-adv_seq            
+adv_seq
             pha
 
           ; Update our copy of the sender's window.
@@ -749,7 +749,7 @@ adv_seq
             bcc +
             lda     #255
           + ldy     #tcp.snd_wnd
-            sta     (kernel.args.net.socket),y            
+            sta     (kernel.args.net.socket),y
 
           ; Set carry if the header contains a SYN or RST
             ldy     #tcp.header.flags
@@ -760,30 +760,30 @@ adv_seq
             pla
 
           ; ack = ptr.seq + flags
-          
+
             ldy     #tcp.header.seq+3
             adc     (kernel.args.ptr),y
             ldy     #tcp.header.ack+3
             sta     (kernel.args.net.socket),y
-            
+
             ldy     #tcp.header.seq+2
             lda     (kernel.args.ptr),y
             adc     #0
             ldy     #tcp.header.ack+2
             sta     (kernel.args.net.socket),y
-            
+
             ldy     #tcp.header.seq+1
             lda     (kernel.args.ptr),y
             adc     #0
             ldy     #tcp.header.ack+1
             sta     (kernel.args.net.socket),y
-            
+
             ldy     #tcp.header.seq+0
             lda     (kernel.args.ptr),y
             adc     #0
             ldy     #tcp.header.ack+0
             sta     (kernel.args.net.socket),y
-            
+
             rts
 
 adv_snd_una
@@ -792,7 +792,7 @@ adv_snd_una
             lda     (kernel.args.ptr),y
             ldy     #tcp.snd_una+0
             sta     (kernel.args.net.socket),y
-            
+
             ldy     #tcp.header.ack+1
             lda     (kernel.args.ptr),y
             ldy     #tcp.snd_una+1
@@ -807,9 +807,9 @@ adv_snd_una
             lda     (kernel.args.ptr),y
             ldy     #tcp.snd_una+3
             sta     (kernel.args.net.socket),y
-            
+
             rts
-            
+
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -824,9 +824,9 @@ packet_mount
             lda     (kernel.args.events.dest),y
             cmp     #kernel.event.net.TCP
             beq     _mount
-            sec 
+            sec
             rts
-            
+
           ; Mount the packet in the event at args.ptr
 _mount      ldy     #kernel.event.event_t.buf
             lda     (kernel.args.events.dest),y
@@ -838,12 +838,12 @@ _mount      ldy     #kernel.event.event_t.buf
             rts
 
 
-tcp_dispatch   
+tcp_dispatch
             ldy     #tcp.state
             lda     (kernel.args.net.socket),y
             tax
             jmp         (_table,x)
-_table      .dstruct    STATE            
+_table      .dstruct    STATE
 
 STATE           .struct
 CLOSED          .word   tcp_is_closed
@@ -876,11 +876,11 @@ tcp_is_closed
             lda     #0
             ldy     #tcp.header.seq+0
             sta     (kernel.args.net.socket),y
-            iny            
+            iny
             sta     (kernel.args.net.socket),y
-            iny            
+            iny
             sta     (kernel.args.net.socket),y
-            iny            
+            iny
             sta     (kernel.args.net.socket),y
 
           ; ACK = ptr.seq+ptr.len
@@ -902,7 +902,7 @@ tcp_is_closed
             txa
             adc     (kernel.args.ptr),y
             sta     (kernel.args.net.socket),y
-                        
+
             bra     _rst
 _ack
           ; SEQ = ptr.ack
@@ -918,7 +918,7 @@ _ack
             iny
             lda     (kernel.args.ptr),y
             sta     (kernel.args.net.socket),y
-_rst        
+_rst
             ldy     #tcp.header.flags
             lda     (kernel.args.ptr),y
             and     #TCP_ACK
@@ -941,7 +941,7 @@ _1_ack
             lda     (kernel.args.ptr),y
             bit     #TCP_ACK
             beq     _2_rst
-            
+
           ; ACK is set, check ranges.
 
           ; drop if ACK <= ISS/UNA
@@ -959,7 +959,7 @@ _1_ack
 .endif
           ; Reload the flags
             ldy     #tcp.header.flags
-            lda     (kernel.args.ptr),y            
+            lda     (kernel.args.ptr),y
 
 _2_rst
             bit     #TCP_RST
@@ -971,7 +971,7 @@ _close
             ldy     #tcp.state
             sta     (kernel.args.net.socket),y
            ;ldy     #REJECTED
-_drop       
+_drop
             sec
             rts
 
@@ -981,7 +981,7 @@ _3_prec ; Not used
 _4_syn
             bit     #TCP_SYN
             beq     _5
-            
+
             bit     #TCP_ACK
             beq     _estab
 
@@ -997,7 +997,7 @@ _estab
             jsr     accept_ack
 
           ; Check for SND.UNA > ISS (our SYN has been ACKed)
-            ; okay for now           
+            ; okay for now
 
             lda     #STATE.ESTABLISHED
             ldy     #tcp.state
@@ -1011,7 +1011,7 @@ _synrec
           ; ack = recv.nxt
             jsr     accept_seq
 
-          ; SYN+ACK            
+          ; SYN+ACK
             ldy     #tcp.header.flags
             lda     #TCP_SYN | TCP_ACK
             sta     (kernel.args.net.socket),y
@@ -1024,12 +1024,12 @@ _reset
             bit     #TCP_RST
             bne     _drop
             ; TODO: send a reset
-            
+
 _5
           ; If not RST, drop.
             bit     #TCP_RST
             beq     _drop
-            
+
 
 
 tcp_is_syn_received
@@ -1037,10 +1037,10 @@ tcp_is_syn_received
           ; Our data has been ack'd
             jsr     adv_snd_una
             jsr     accept_ack
-            
+
             jsr     accept_seq
-            
-          ; ACK            
+
+          ; ACK
             ldy     #tcp.header.flags
             lda     #TCP_ACK
             sta     (kernel.args.net.socket),y
@@ -1058,24 +1058,24 @@ _1_seq
             bcc     _2_rst
 _drop       clc     ; just ignore them.
             rts
-            
+
 _2_rst
           ; If we are not reset, continue.
             ldy     #tcp.header.flags
-            lda     (kernel.args.ptr),y   
+            lda     (kernel.args.ptr),y
             bit     #TCP_RST
             beq     _3_secprec
-            
+
           ; We are reset; close.
 _close      lda     #STATE.CLOSED
             ldy     #tcp.state
             sta     (kernel.args.net.socket),y
             sec
             rts
-            
+
 _3_secprec
           ; Not used
-          
+
 _4_syn
             bit     #TCP_SYN
             beq     _5_ack
@@ -1094,7 +1094,7 @@ _7_data
           ; Check for incoming bytes
             jsr     tcp_data
             ora     #0
-            beq     _8_fin            
+            beq     _8_fin
 
           ; Copy incoming bytes
 
@@ -1106,19 +1106,19 @@ _loop       lda     (kernel.args.ptr),y
             iny
             dex
             bne     _loop
-            sty     kernel.args.net.accepted          
+            sty     kernel.args.net.accepted
             stz     kernel.args.ptr+0
-            
+
           ; A = # of bytes to ack
           ; fall through to _8_fin
             tya
-            
+
 _8_fin
           ; Advance our ack # (data size in A)
             jsr     adv_seq
 
             ldy     #tcp.header.flags
-            lda     (kernel.args.ptr),y 
+            lda     (kernel.args.ptr),y
             bit     #TCP_FIN
             beq     _done
 
@@ -1137,7 +1137,7 @@ _8_fin
           ; ACK and close
             lda     #TCP_ACK | TCP_FIN
             jmp     tcp_reply
-            
+
 _done
           ; ACK
             lda     #TCP_ACK
@@ -1146,8 +1146,8 @@ _done
           ; ACK
             lda     #TCP_ACK | TCP_PSH
             jmp     tcp_reply
-          
-          
+
+
 
 tcp_is_fin_wait_1
 tcp_is_fin_wait_2

@@ -3,18 +3,18 @@
 ; SPDX-License-Identifier: GPL-3.0-only
 
             .cpu        "w65c02"
-            
+
             .namespace  kernel
 delay       .namespace
 
             .section    dp
 waiting     .byte       ?
-            .send            
+            .send
 
             .virtual    Tokens
 time        .byte       ?
 device      .byte       ?
-cookie      .byte       ?       
+cookie      .byte       ?
 next        .byte       ?
             .endv
 
@@ -48,14 +48,14 @@ queue
             phy
             jsr     kernel.token.alloc
             bcs     _out
-            
+
           ; Populate the head
             sta     time,y
             txa
             sta     device,y
             lda     user.timer.cookie
             sta     cookie,y
-            
+
           ; Add to list
             php
             sei
@@ -63,23 +63,23 @@ queue
             sta     next,y
             sty     waiting
             plp
-            
+
             clc
 _out
             ply
 done
             lda     kernel.ticks
             rts
-	
+
 dispatch
           ; Take the list; we're already in an IRQ handler.
             lda     waiting
             stz     waiting
-            
+
 _loop
             tay
             beq     _done
-            
+
           ; Expired iff 'time' is at most 8 ticks in the past.
           ; (BPL on CMP is a signed test: it also fired for any
           ; timer more than 127 ticks in the future.)
@@ -88,7 +88,7 @@ _loop
             sbc     time,y
             cmp     #8
             bcc     _call
-       
+
           ; Add back to the list.
 _retry      ldx     next,y
             lda     waiting
@@ -116,7 +116,7 @@ _event
             bcc     _send
             tay
             bra     _retry
-_send       
+_send
             tax
             lda     time,x
             sta     kernel.event.entry.timer.value,y
@@ -129,7 +129,7 @@ _send
             txa
             tay
             bra     _free
-                        
+
 _done
             rts
 

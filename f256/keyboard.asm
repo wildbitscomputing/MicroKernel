@@ -28,7 +28,7 @@ cbm_kbd     .platform.c64kbd.driver
 jr_kbd      .platform.jr_kbd.driver
 k2_kbd      .platform.k2_kbd.driver
 
-; d6a0 system control, 
+; d6a0 system control,
 ; d6a7 computer id reads jr=02, k=$12
 ; d6a7 computer id reads k2=$11 - Stefany Sept 15th, 2024
 
@@ -46,7 +46,7 @@ cia_init
             beq     _cbm
 
             cmp     #$18        ; Jr2 - Jr II has also only the PS2, there is no way to use the VIA0 has CBM Keyboard though
-            beq     _cbm            
+            beq     _cbm
 
             cmp     #$12        ; K - PS2 & Local Keyboard using VIA1 & VIA0
             beq     _jr
@@ -76,7 +76,7 @@ ps2_init
             jsr     purple_init
             jsr     green_init
             rts
-            
+
 purple_init
 
             jsr     purple.init
@@ -102,4 +102,4 @@ _out        rts
             .send
             .endn
             .endn
-            
+
