@@ -194,8 +194,8 @@ LCD_1_69_Init
           ; Set gate control voltages (VGH=13.26V VGL=-10.43, ST7789V default)
             .lcd_cmd    GCTRL, [$35]
 
-          ; Set VCOM voltage to 1.425V
-            .lcd_cmd    VCOMS, [$35]
+          ; Set VCOM voltage to 1.35V
+            .lcd_cmd    VCOMS, [$32]
 
           ; LCM control settings (ST7789V default)
             .lcd_cmd    LCMCTRL, [$2C]
@@ -203,8 +203,8 @@ LCD_1_69_Init
           ; Enable VDVS and VRHS commands
             .lcd_cmd    VDVVRHEN, [$01, $FF]
 
-          ; Set VAP=4.5V, VAN=-4.5V
-            .lcd_cmd    VRHS, [$13]
+          ; Set VAP=4.6V, VAN=-4.6V
+            .lcd_cmd    VRHS, [$15]
 
           ; Set VDV=0V (ST7789V default)
             .lcd_cmd    VDVS, [$20]
@@ -216,10 +216,11 @@ LCD_1_69_Init
             .lcd_cmd    PWCTRL1, [$A4, $A1]
 
           ; Positive-polarity gamma curve
-            .lcd_cmd    PVGAMCTRL, [$F0, $00, $04, $04, $04, $05, $29, $33, $3E, $38, $12, $12, $28, $30]
+            .lcd_cmd    PVGAMCTRL, [$D0, $08, $0E, $09, $09, $05, $31, $33, $48, $17, $14, $15, $31, $34]
+
 
           ; Negative-polarity gamma curve
-            .lcd_cmd    NVGAMCTRL, [$F0, $07, $0A, $0D, $0B, $07, $28, $33, $3E, $36, $14, $14, $29, $32]
+            .lcd_cmd    NVGAMCTRL, [$D0, $08, $0E, $09, $09, $15, $31, $33, $48, $17, $14, $15, $31, $34]
 
           ; Enable display polarity inversion
             .lcd_cmd    INVON, []
