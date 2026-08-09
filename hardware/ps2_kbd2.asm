@@ -103,7 +103,9 @@ _ext1
 _pause
           ; Emit the event, but keep the e1 prefix armed so the
           ; trailing $77 of the sequence is swallowed above.
-            lda     #PAUSE
+            ; Treat the PC Pause/Break key as the K2 RUN/STOP key so PS/2
+            ; input and the local optical keyboard produce the same raw code.
+            lda     #BREAK
             jsr     send
             stz     released
             rts
