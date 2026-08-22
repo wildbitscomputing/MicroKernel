@@ -134,6 +134,14 @@ block_free
         rts
 
 tick
+      ; While an NMI/break handler is active the victim is frozen. Freeze the
+      ; timebase too, so its pending frame timers don't count down, expire, and
+      ; get freed out from under it -- they resume exactly on break exit. The
+      ; keyboard scan that follows this call in the frame IRQ still runs, so the
+      ; monitor keeps its input.
+        lda     platform.nmi_in_progress
+        bne     _frozen
+
       ; Increment the tick count.
         inc     kernel.ticks
         bne     _done
@@ -141,6 +149,7 @@ tick
 
       ; Dispatch delay events
 _done   jmp     kernel.delay.dispatch
+_frozen rts
 
 set_timer
 
