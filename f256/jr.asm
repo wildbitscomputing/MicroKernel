@@ -288,6 +288,9 @@ NMI_RAM_HI   = $3f              ; reserved RAM bank -> victim slot 5 ($A000): im
 NMI_TEXT_BANK = $3c             ; reserved RAM bank: saved victim text page
 NMI_COLR_BANK = $3d             ; reserved RAM bank: saved victim color page
 NMI_SCR_CLEAR = $10             ; cleared color attribute (FG=white, BG=black)
+MACHINE_ID_REG = $d6a7
+JR2_MID        = $18
+JR2_SYSRQ_CTRL = $d6b6          ; bit 7: sticky SysRq NMI cause, W1C
 
 hw_nmi:
       ; NMI dispatch: freeze the victim, gate on Foenix, copy the handler's
@@ -306,11 +309,27 @@ hw_nmi:
 +
         sta     nmi_saved_mmu
         stx     nmi_saved_sp
+      ; JR2 has only a PS/2 keyboard, so it cannot satisfy the K2 optical
+      ; Foenix-key state test below. Its FPGA instead latches the physical
+      ; SysRq NMI cause in $D6B6 bit 7. Accept and acknowledge only that cause;
+      ; an IEC NMI must not enter the monitor accidentally.
+        lda     MACHINE_ID_REG
+        and     #$1f
+        cmp     #JR2_MID
+        bne     _nmi_gate_k2
+        lda     JR2_SYSRQ_CTRL
+        bmi     _nmi_ack_sysrq
+        jmp     nmi_not_ours
+_nmi_ack_sysrq
+        ora     #$80            ; W1C cause while preserving HDMI bit 0
+        sta     JR2_SYSRQ_CTRL
+        bra     _nmi_ours
+_nmi_gate_k2
         lda     @w platform.k2_kbd.state+0
         and     #$20
-        beq     +
+        beq     _nmi_ours
         jmp     nmi_not_ours    ; Foenix not held -> ignore
-+
+_nmi_ours
       ; Decline a break INTO the monitor itself: it runs from reserved bank
       ; NMI_RAM_HI ($3f) in slot 5, so freezing it would clobber its own RAM
       ; during the flash->RAM copy and could not be resumed. If the victim's
@@ -641,6 +660,20 @@ nmi_not_ours
       ; Re-entry while a handler is active: A still = victim LUT, X still =
       ; victim SP (save area untouched). Restore and RTI back into the handler.
 nmi_reenter
+      ; A second SysRq while the monitor is already active is declined above.
+      ; Acknowledge its sticky JR2 cause here so a later IEC NMI cannot be
+      ; mistaken for that old key press. Preserve A, which holds the victim LUT.
+        pha
+        lda     MACHINE_ID_REG
+        and     #$1f
+        cmp     #JR2_MID
+        bne     _nmi_reenter_restore
+        lda     JR2_SYSRQ_CTRL
+        bpl     _nmi_reenter_restore
+        ora     #$80
+        sta     JR2_SYSRQ_CTRL
+_nmi_reenter_restore
+        pla
         sta     mmu_ctrl
         txs
         ply
