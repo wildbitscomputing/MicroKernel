@@ -88,6 +88,7 @@ nmi_saved_mmu .byte     ?   ; victim mmu_ctrl (active LUT) at NMI
 nmi_saved_io  .byte     ?   ; victim io_ctrl at NMI
 nmi_saved_slot5 .byte   ?   ; (unused since Task1) legacy LUT0 slot-5 save
 nmi_in_progress .byte   ?   ; non-zero while a handler is active (nested guard)
+nmi_entry_src .byte     ?   ; 0 = Foenix-key break, 1 = BRK (breakpoint/step)
 nmi_ptr       .word     ?   ; (unused since Task1) legacy header entry pointer
 nmi_orig_slot4 .byte    ?   ; victim LUT slot-4 bank displaced by the handler
 nmi_orig_slot5 .byte    ?   ; victim LUT slot-5 bank displaced by the handler
@@ -333,10 +334,13 @@ _nmi_gate_k2
         beq     _nmi_ours
         jmp     nmi_not_ours    ; Foenix not held -> ignore
 _nmi_ours
+        stz     nmi_entry_src   ; 0 = entered via Foenix key
       ; Decline a break INTO the monitor itself: it runs from reserved bank
       ; NMI_RAM_HI ($3f) in slot 5, so freezing it would clobber its own RAM
       ; during the flash->RAM copy and could not be resumed. If the victim's
       ; slot 5 is that bank, ignore the NMI and resume it untouched.
+      ; (The BRK path in hw_irq joins here, having set nmi_entry_src = 1.)
+nmi_selfguard:
         jsr     nmi_edit_vlut
         lda     mmu+5
         stz     mmu_ctrl            ; active LUT0, edit off
@@ -380,7 +384,16 @@ _nmi_notmon
         jsr     nmi_copy8k
       ; poke the victim's slot-4 bank into the RAM image's reserved header byte
       ; (offset 9); RAM_LO is mapped at LUT0 slot4 ($8000), so that is $8009.
+      ; Bank numbers are <= $3f, so bit 7 is free: set it when the entry was a
+      ; BRK (breakpoint/step) so the monitor can tell BRK from a Foenix break.
+        lda     nmi_entry_src
+        beq     _poke_key
         lda     nmi_orig_slot4
+        ora     #$80
+        bra     _poke_do
+_poke_key
+        lda     nmi_orig_slot4
+_poke_do
         sta     $8009
       ; block 1: flash NMI_MON_BANK+1 -> RAM_HI
         lda     #$80
@@ -697,6 +710,27 @@ hw_irq:
         phx
         phy
 
+      ; Distinguish a BRK ($00) from a hardware IRQ: in emulation mode the CPU
+      ; pushes the status with bit 4 (B) = 1 for BRK, 0 for IRQ. A,X,Y were just
+      ; pushed above the interrupt frame, so pushed-P is at SP+4.
+        tsx
+        lda     $0104,x
+        and     #$10
+        beq     _hw_irq_norm
+      ; --- BRK: dispatch into the break monitor (mirror the hw_nmi prologue,
+      ; but skip the Foenix gate; X = victim SP from the tsx above). ---
+        lda     mmu_ctrl        ; A = victim active LUT
+        stz     mmu_ctrl        ; -> kernel LUT (LUT0)
+        ldy     nmi_in_progress
+        beq     +
+        jmp     nmi_reenter
++       sta     nmi_saved_mmu
+        stx     nmi_saved_sp
+        lda     #1
+        sta     nmi_entry_src   ; 1 = entered via BRK
+        jmp     nmi_selfguard
+
+_hw_irq_norm
       ; Save MMU state and switch to the kernel's MMU table.
         lda     mmu_ctrl    ; Get the current mmu state.
         stz     mmu_ctrl    ; Switch to the kernel's mmu table.
@@ -800,4 +834,3 @@ k2_feature_detect
 
         .send
         .endn
-
