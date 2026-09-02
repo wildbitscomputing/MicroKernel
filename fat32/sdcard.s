@@ -7,6 +7,7 @@
 	.include "sdcard.inc"
 
 	.export sector_buffer, sector_buffer_end, sector_lba
+	.importzp spi_ctrl_ptr, spi_data_ptr
 
         .import print, print_space, print_hex_byte
 
@@ -34,6 +35,38 @@ init_retries:      .res 2
 ;FAST_WRITE=1
 
 	.code
+
+;-----------------------------------------------------------------------------
+; select physical card
+;
+; In:  A = 0 for the front card, 1 for the K2 internal microSD card
+; Out: C = 1 on success, 0 for an unsupported card
+;-----------------------------------------------------------------------------
+sdcard_select:
+	.assert SPI_CARD0_DATA = SPI_CARD0_CTRL + 1, error
+	.assert SPI_CARD1_CTRL = SPI_CARD0_CTRL + $20, error
+	.assert SPI_CARD1_DATA = SPI_CARD1_CTRL + 1, error
+	cmp #2
+	bcs @error
+
+	; The two compatible controllers are $20 bytes apart.
+	asl
+	asl
+	asl
+	asl
+	asl
+	sta spi_ctrl_ptr
+	inc a
+	sta spi_data_ptr
+	lda #>SPI_CARD0_CTRL
+	sta spi_ctrl_ptr + 1
+	sta spi_data_ptr + 1
+	sec
+	rts
+
+@error:
+	clc
+	rts
 
 ;-----------------------------------------------------------------------------
 ; wait ready
@@ -71,9 +104,9 @@ wait_ready:
 ; clobbers: A
 ;-----------------------------------------------------------------------------
 deselect:
-	lda SPI_CTRL
+	lda (spi_ctrl_ptr)
 	and #(SPI_CTRL_SELECT_MASK ^ $FF)
-	sta SPI_CTRL
+	sta (spi_ctrl_ptr)
 
 	jmp spi_read
 
@@ -91,9 +124,9 @@ flush:
 ;
 ; clobbers: A,X,Y
 ;-----------------------------------------------------------------------------
-select:	lda SPI_CTRL
+select:	lda (spi_ctrl_ptr)
 	ora #SPI_CTRL_SELECT_SDCARD
-	sta SPI_CTRL
+	sta (spi_ctrl_ptr)
 
 	jsr spi_read
 	jsr wait_ready
@@ -111,20 +144,20 @@ select:	lda SPI_CTRL
 ;-----------------------------------------------------------------------------
 spi_read:
 	lda #$FF	; 2
-	sta SPI_DATA	; 4
-@1:	bit SPI_CTRL	; 4
+	sta (spi_data_ptr)
+@1:	lda (spi_ctrl_ptr)
 	bmi @1		; 2 + 1 if branch
-	lda SPI_DATA	; 4
+	lda (spi_data_ptr)
 	rts		; 6
 			; >= 22 cycles
 
 .macro spi_read_macro
 	.local @1
 	lda #$FF	; 2
-	sta SPI_DATA	; 4
-@1:	bit SPI_CTRL	; 4
+	sta (spi_data_ptr)
+@1:	lda (spi_ctrl_ptr)
 	bmi @1		; 2 + 1 if branch
-	lda SPI_DATA	; 4
+	lda (spi_data_ptr)
 .endmacro
 
 ;-----------------------------------------------------------------------------
@@ -133,15 +166,17 @@ spi_read:
 ; byte to write in A
 ;-----------------------------------------------------------------------------
 spi_write:
-	sta SPI_DATA
-@1:	bit SPI_CTRL
+	pha
+	sta (spi_data_ptr)
+@1:	lda (spi_ctrl_ptr)
 	bmi @1
+	pla
 	rts
 
 .macro spi_write_macro
 	.local @1
-	sta SPI_DATA
-@1:	bit SPI_CTRL
+	sta (spi_data_ptr)
+@1:	lda (spi_ctrl_ptr)
 	bmi @1
 .endmacro
 
@@ -243,7 +278,7 @@ send_cmd:
 sdcard_init:
 	; Deselect card and set slow speed (< 400kHz)
 	lda #SPI_CTRL_SLOWCLK
-	sta SPI_CTRL
+	sta (spi_ctrl_ptr)
 
 	; Generate at least 74 SPI clock cycles with device deselected
 	ldx #10
@@ -315,7 +350,7 @@ sdcard_init:
 	; Select full speed
 	jsr deselect
 	lda #0
-	sta SPI_CTRL
+	sta (spi_ctrl_ptr)
 
 	; Success
 @succ:
@@ -359,31 +394,31 @@ sdcard_read_sector:
 
 .ifdef FAST_READ
 @start:	; Enable auto-tx mode
-	lda SPI_CTRL
+	lda (spi_ctrl_ptr)
 	ora #SPI_CTRL_AUTOTX
-	sta SPI_CTRL
+	sta (spi_ctrl_ptr)
 
 	; Start first read transfer
-	lda SPI_DATA			; Auto-tx
+	lda (spi_data_ptr)		; Auto-tx
 	ldy #0				; 2
 
 	; Efficiently read first 256 bytes (hide SPI transfer time)
  	ldy #0				; 2
-@3:	lda SPI_DATA			; 4
+@3:	lda (spi_data_ptr)
 	sta sector_buffer + 0, y	; 5
-	lda SPI_DATA			; 4
+	lda (spi_data_ptr)
 	sta sector_buffer + 1, y	; 5
-	lda SPI_DATA			; 4
+	lda (spi_data_ptr)
 	sta sector_buffer + 2, y	; 5
-	lda SPI_DATA			; 4
+	lda (spi_data_ptr)
 	sta sector_buffer + 3, y	; 5
-	lda SPI_DATA			; 4
+	lda (spi_data_ptr)
 	sta sector_buffer + 4, y	; 5
-	lda SPI_DATA			; 4
+	lda (spi_data_ptr)
 	sta sector_buffer + 5, y	; 5
-	lda SPI_DATA			; 4
+	lda (spi_data_ptr)
 	sta sector_buffer + 6, y	; 5
-	lda SPI_DATA			; 4
+	lda (spi_data_ptr)
 	sta sector_buffer + 7, y	; 5
 	tya				; 2
 	clc				; 2
@@ -392,21 +427,21 @@ sdcard_read_sector:
 	bne @3				; 2+1
 
 	; Efficiently read second 256 bytes (hide SPI transfer time)
-@4:	lda SPI_DATA			; 4
+@4:	lda (spi_data_ptr)
 	sta sector_buffer + 256 + 0, y	; 5
-	lda SPI_DATA			; 4
+	lda (spi_data_ptr)
 	sta sector_buffer + 256 + 1, y	; 5
-	lda SPI_DATA			; 4
+	lda (spi_data_ptr)
 	sta sector_buffer + 256 + 2, y	; 5
-	lda SPI_DATA			; 4
+	lda (spi_data_ptr)
 	sta sector_buffer + 256 + 3, y	; 5
-	lda SPI_DATA			; 4
+	lda (spi_data_ptr)
 	sta sector_buffer + 256 + 4, y	; 5
-	lda SPI_DATA			; 4
+	lda (spi_data_ptr)
 	sta sector_buffer + 256 + 5, y	; 5
-	lda SPI_DATA			; 4
+	lda (spi_data_ptr)
 	sta sector_buffer + 256 + 6, y	; 5
-	lda SPI_DATA			; 4
+	lda (spi_data_ptr)
 	sta sector_buffer + 256 + 7, y	; 5
 	tya				; 2
 	clc				; 2
@@ -415,9 +450,9 @@ sdcard_read_sector:
 	bne @4				; 2+1
 
 	; Disable auto-tx mode
-	lda SPI_CTRL
+	lda (spi_ctrl_ptr)
 	and #(SPI_CTRL_AUTOTX ^ $FF)
-	sta SPI_CTRL
+	sta (spi_ctrl_ptr)
 
 	; Next read is now already done (first CRC byte), read second CRC byte
 	jsr spi_read
@@ -426,20 +461,22 @@ sdcard_read_sector:
 @start:	; Read 512 bytes of sector data
 	ldx #$FF
 	ldy #0
-@3:	stx SPI_DATA		; 4
-@4:	bit SPI_CTRL		; 4
+@3:	txa
+	sta (spi_data_ptr)
+@4:	lda (spi_ctrl_ptr)
 	bmi @4			; 2 + 1 if branch
 
-	lda SPI_DATA		; 4
+	lda (spi_data_ptr)
 	sta sector_buffer + 0, y
 	iny
 	bne @3
 
 	; Y already 0 at this point
-@5:	stx SPI_DATA		; 4
-@6:	bit SPI_CTRL		; 4
+@5:	txa
+	sta (spi_data_ptr)
+@6:	lda (spi_ctrl_ptr)
 	bmi @6			; 2 + 1 if branch
-	lda SPI_DATA		; 4
+	lda (spi_data_ptr)
 	sta sector_buffer + 256, y
 	iny
 	bne @5
@@ -482,13 +519,13 @@ sdcard_write_sector:
 	;       Make sure 9 CPU clock cycles take longer than 640 ns (eg. CPU max 14MHz)
 	ldy #0
 @1:	lda sector_buffer, y		; 4
-	sta SPI_DATA			; 4
+	sta (spi_data_ptr)
 	iny				; 2
 	bne @1				; 2 + 1
 
 	; Y already 0 at this point
 @2:	lda sector_buffer + 256, y	; 4
-	sta SPI_DATA			; 4
+	sta (spi_data_ptr)
 	iny				; 2
 	bne @2				; 2 + 1
 .else

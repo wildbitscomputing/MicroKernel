@@ -19,6 +19,8 @@ dirent      .word   ?
 size        .word   ?
 
 init        .fill   3
+card_init   .fill   3
+card_alive  .fill   3
 
 get_error   .fill   3
 get_size    .fill   3
@@ -93,7 +95,7 @@ id          .word       ?
 requested   .byte       ?
 driver      .byte       ?   ; For a later call to probe_devices.
 count       .byte       ?   ; count of open streams against the card.
-initialized .byte       ?   ; Currently inserted card is initialized.
+initialized .fill       2   ; Per-card initialization state (SD0, SD1).
             .send
 
             .section    kernel2
@@ -116,6 +118,18 @@ led_off
         and #253
         sta $d6a0
 _done   rts
+
+check_writable
+      ; X->stream.  Only the front socket exposes write-protect.
+        lda     kernel.stream.entry.device,x
+        beq     _front
+        clc
+        rts
+_front
+        stz     io_ctrl
+        lda     $d6a0
+        cmp     #$80
+        rts
 
 
 init
@@ -141,6 +155,7 @@ init
           ; Device not yet active.
             stz     count
             stz     initialized
+            stz     initialized+1
             stz     io_ctrl
             lda     $d6a0
             and     #253
@@ -153,6 +168,10 @@ init
             sta     kernel.src+1
             jsr     kernel.device.install
 
+          ; Initialize the shared FAT32 context and volume state once.  Card
+          ; initialization remains lazy so boot does not require media.
+            call    fat.init
+
           ; Associate ourselves with the card insert interrupt
             txa
             ldy     #irq.sdc        ; should be parameterized.
@@ -162,8 +181,17 @@ init
             lda     #irq.sdc
     	    jsr     irq.enable
 
-          ; Mount C
+          ; Register the front SD card as drive 0 on every machine.
             lda     #0
+            jsr     register_drive
+
+          ; K2 exposes a second compatible slow-SPI controller at $DD20.
+            stz     io_ctrl
+            lda     $d6a7
+            and     #$3f
+            cmp     #$11
+            bne     _done
+            lda     #1
             jsr     register_drive
 _done
             phy
@@ -191,7 +219,7 @@ register_drive
             sta     kernel.fs.entry.index,y
             txa
             sta     kernel.fs.entry.driver,y
-            lda     #0
+            lda     kernel.fs.entry.device,y
             sta     kernel.fs.entry.partition,y
 
             jsr     kernel.fs.register
@@ -206,9 +234,9 @@ _out
             rts
 
 dev_data
-        ; Card inserted interrupt
+        ; Only the front socket exposes a card-insert interrupt.
 
-          ; flag card for re-initialization.
+          ; Flag SD0 for re-initialization.
             stz     initialized
             rts
 
@@ -243,31 +271,51 @@ dev_get
         rts
 
 _ready
+      ; Validate the physical card number.
+        ldx     kernel.fs.entry.device,y
+        cpx     #2
+        bcs     _not_ready
 
-      ; Make sure the card is inserted
-
+      ; Only the front socket has a card-detect signal.
+        cpx     #0
+        bne     _check_init
         stz     io_ctrl
         lda     $d6a0
         and     #64
-        cmp     #64
-        bcs     _out
+        bne     _not_ready
 
-      ; Only partition zero for now.
-        lda     kernel.fs.entry.partition,y
-        cmp     #1
-        bcs     _out
+_check_init
+        lda     initialized,x
+        beq     _initialize
 
-      ; Make sure the card is initialized.
-        lda     initialized
-        bne     _out
+      ; The internal microSD socket has no card-detect signal.  CMD13 distinguishes the
+      ; initialized card from an empty socket or a newly inserted card.
+        cpx     #0
+        beq     _is_ready
+        txa
+        pha
+        call    fat.card_alive
+        pla
+        tax
+        bcs     _is_ready
+        stz     initialized,x
 
-      ; initialize the card
-        call    fat.init
-        adc     #1 ; existing carry value is irrelevant.
-        bcs     _out
-        inc     initialized
+_initialize
+      ; Initialize this card without resetting the other card's FAT contexts.
+        txa
+        pha
+        call    fat.card_init
+        pla
+        tax
+        bcc     _not_ready
+        inc     initialized,x
 
-_out
+_is_ready
+        clc
+        rts
+
+_not_ready
+        sec
         rts
 
 _found
@@ -390,12 +438,9 @@ open_new
       ; X->stream
         ldx     kernel.fs.args.stream,y
 
-      ; Check the write-protect.  Not the idea place,
-      ; but checking here prevents resource leaks.
-        stz     io_ctrl
-        sec
-        bit     $d6a0
-        bmi     _err
+      ; Check write-protect before allocating resources.
+        jsr     check_writable
+        bcs     _err
 
       ; Allocate a file handle
         lda     kernel.stream.entry.partition,x
@@ -1063,11 +1108,8 @@ format:
         cmp     #1
         bcs     _err
 
-      ; Check the write-protect.  Not the ideal place,
-      ; but checking here prevents resource leaks.
-        stz     io_ctrl
-        lda     $d6a0
-        cmp     #$80
+      ; Check write-protect before allocating resources.
+        jsr     check_writable
         bcs     _err
 
       ; Terminate the label
@@ -1076,8 +1118,11 @@ format:
       ; Mark the device as busy
         jsr     led_on
 
+        lda     kernel.stream.entry.partition,x
+        tax
         lda     kernel.fs.args.buf,y
         call    fat.mkfs
+        ldx     kernel.fs.args.stream,y
         bcc     _fail
 
       ; Mark the device as no longer busy
@@ -1108,10 +1153,8 @@ rename
       ; Mark the device as busy
         jsr     led_on
 
-      ; Check the write-protect.
-        stz     io_ctrl
-        lda     $d6a0
-        cmp     #$80
+      ; Check write-protect.  SD1 has no WP input.
+        jsr     check_writable
         bcs     _err
 
       ; Allocate a file handle
@@ -1169,10 +1212,8 @@ delete
       ; Mark the device as busy
         jsr     led_on
 
-      ; Check the write-protect.
-        stz     io_ctrl
-        lda     $d6a0
-        cmp     #$80
+      ; Check write-protect.  SD1 has no WP input.
+        jsr     check_writable
         bcs     _err
 
       ; Allocate a file handle
@@ -1225,10 +1266,8 @@ mkdir
       ; Mark the device as busy
         jsr     led_on
 
-      ; Check the write-protect.
-        stz     io_ctrl
-        lda     $d6a0
-        cmp     #$80
+      ; Check write-protect.  SD1 has no WP input.
+        jsr     check_writable
         bcs     _err
 
       ; Allocate a file handle
@@ -1285,11 +1324,8 @@ rmdir
       ; Mark the device as busy
         jsr     led_on
 
-      ; Check the write-protect.  Not the ideal place,
-      ; but checking here prevents resource leaks.
-        stz     io_ctrl
-        lda     $d6a0
-        cmp     #$80
+      ; Check write-protect.  SD1 has no WP input.
+        jsr     check_writable
         bcs     _err
 
       ; Allocate a file handle

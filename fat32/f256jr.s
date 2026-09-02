@@ -5,11 +5,7 @@
         .PC02
         .include "fat32.inc"
 
-        .export fat_test
         .export print, print_space, print_hex_byte
- 
-        .import sdcard_init
-        .import skip_mask
 
         .import fat32_ptr       : zeropage
         .import fat32_ptr2      : zeropage
@@ -25,8 +21,10 @@ used:   .res    1
         .word   fat32_dirent
         .word   fat32_size
 
-        jmp     fat_test; fat32_init
-        
+        jmp     fat32_init
+        jmp     fat32_card_init
+        jmp     fat32_card_check_alive
+
         jmp     get_error
         jmp     get_size
         jmp     set_size
@@ -56,7 +54,7 @@ used:   .res    1
         jmp     fat32_read_dirent
         jmp     fat32_get_free_space
         jmp     fat32_close
-        
+
         jmp     fat32_mkdir
         jmp     fat32_rmdir
 
@@ -73,7 +71,7 @@ get_size:
 set_size:
         sta     fat32_size+0
         stz     fat32_size+1
-        stz     fat32_size+2 
+        stz     fat32_size+2
         stz     fat32_size+3
         cmp     #0
         bne     @done
@@ -119,23 +117,23 @@ set_time:
         lda     2,x
         jsr     bcd2int
         sta     fat32_time_month
-        
+
         lda     3,x
         jsr     bcd2int
         sta     fat32_time_day
-        
+
         lda     4,x
         jsr     bcd2int
         sta     fat32_time_hours
-        
+
         lda     5,x
         jsr     bcd2int
         sta     fat32_time_minutes
-        
+
         lda     6,x
         jsr     bcd2int
         sta     fat32_time_seconds
-        
+
         plx
         rts
 
@@ -152,41 +150,15 @@ bcd2int:
         clc
         adc     @tab,x
         plx
-        rts        
+        rts
 @tab:   .byte   0, 10, 20, 30, 40, 50, 60, 70, 80, 90
 
-fat_test:
-
-        stz     $1
-        stz     screen+0
-        lda     #$c0
-        sta     screen+1
-        stz     used
-
-        jsr     sdcard_init
-        bcc     @error
-        
-        jsr     fat32_init
-        stz     skip_mask
-
-@out:
-        lda     #'K'
-        jsr     print
-        lda     #0
-        tax
-        rts
-@error:        
-        lda     #'X'
-        jsr     print
-        lda     #$ff
-        tax
-        rts
-
 my_mkfs:
-        
-      ; Alloc and set the context.
+
+      ; Allocate and select a context for volume X.  Both physical cards use
+      ; partition zero.
         pha
-        lda     #0
+        txa
         jsr     fat32_alloc_context
         bcs     @ctx
         pla
@@ -208,11 +180,11 @@ my_mkfs:
         sta     fat32_bufptr+0
         lda     #>@oem
         sta     fat32_bufptr+1
-        
+
         lda     #0  ; partition 0
         ldx     #0  ; default sectors per cluster
         jsr     fat32_mkfs
-        
+
         php
         jsr     fat32_get_context
         jsr     fat32_free_context
@@ -239,7 +211,7 @@ print_hex:
         jsr     print
         ply
         rts
-@hex:   .asciiz "0123456789abcdef"        
+@hex:   .asciiz "0123456789abcdef"
 
 print_space:
         lda     #32
@@ -262,7 +234,7 @@ print: rts
         bne     @done
         lda     #$c0
         sta     screen+1
-@done:  
+@done:
         stz     $1
         rts
 @lf:
@@ -274,7 +246,7 @@ print: rts
         inc     screen+0
         bne     @lf
         inc     screen+1
-        bra     @lf        
+        bra     @lf
 @next:
         stz     used
         bra     @done

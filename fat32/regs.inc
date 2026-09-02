@@ -3,8 +3,10 @@
 ;-----------------------------------------------------------------------------
 ; Registers
 ;-----------------------------------------------------------------------------
-SPI_CTRL      = $DD00
-SPI_DATA      = $DD01
+SPI_CARD0_CTRL = $DD00
+SPI_CARD0_DATA = $DD01
+SPI_CARD1_CTRL = $DD20
+SPI_CARD1_DATA = $DD21
 
 SDCARD_WRITE_PROTECT  = 1<<5
 SDCARD_DETECT         = 1<<6
@@ -29,8 +31,8 @@ mtime_seconds .byte
 ; Optionally, fat32_alloc_context / fat32_free_context can be used to manage contexts
 FAT32_CONTEXTS = 8
 
-; Maximum number of partitions
-FAT32_VOLUMES = 4
+; Logical volumes.  Volume 0 is SD0 partition 0; volume 1 is SD1 partition 0.
+FAT32_VOLUMES = 2
 
 ;-----------------------------------------------------------------------------
 ; errno

@@ -10,6 +10,7 @@
 	.include "text_input.inc"
 
 	.import sector_buffer, sector_buffer_end, sector_lba
+	.import skip_mask
 
 	.import filename_char_ucs2_to_internal, filename_char_internal_to_ucs2
 	.import filename_cp437_to_internal, filename_char_internal_to_cp437
@@ -130,7 +131,11 @@ volume_for_context:  .res FAT32_CONTEXTS
 
 ; Volumes
 volume_idx:          .byte 0       ; Index of current filesystem
+sector_volume:       .byte 0       ; Volume owning the shared sector buffer
 cur_volume:          .tag fs       ; Current file descriptor state
+
+card_init_target:    .byte 0
+card_init_previous:  .byte 0
 
 .if FAT32_CONTEXTS > 1
 contexts:            .res CONTEXT_SIZE * FAT32_CONTEXTS
@@ -159,8 +164,11 @@ set_volume:
 	cmp volume_idx
 	bne @0
 	plp
-	sec
-	rts
+	bcs @done ; caller requested selection without mounting
+	bit cur_volume + fs::mounted
+	bmi @done
+	lda volume_idx
+	jmp mount
 
 @0:
 	; Valid volume index?
@@ -220,6 +228,13 @@ set_volume:
 .endif
 
 	sta volume_idx
+	jsr sdcard_select
+	bcs @selected
+	plp
+	lda #ERRNO_NO_MEDIA
+	jmp set_errno
+
+@selected:
 
 	plp
 	bcs @done ; don't mount
@@ -270,6 +285,12 @@ sync_sector_buffer:
 ; * c=0: failure; sets errno
 ;-----------------------------------------------------------------------------
 load_sector_buffer:
+	; The two cards can contain the same LBA.  A cache hit requires both the
+	; logical volume and sector number to match.
+	lda sector_volume
+	cmp volume_idx
+	bne @do_load
+
 	; Check if sector is already loaded
 	cmp32_ne cur_context + context::lba, sector_lba, @do_load
 	sec
@@ -278,11 +299,15 @@ load_sector_buffer:
 @do_load:
 	jsr sync_sector_buffer
 	set32 sector_lba, cur_context + context::lba
+	lda volume_idx
+	sta sector_volume
 	jsr sdcard_read_sector
 	bcc @1
 	rts
 
 @1:
+	lda #$ff
+	sta sector_volume
 	lda #ERRNO_READ
 	jmp set_errno
 
@@ -589,16 +614,20 @@ find_free_cluster:
 ; Out: a     context
 ;      c     =0: failure
 ;      errno =ERRNO_OUT_OF_RESOURCES: all contexts in use
-;            =ERRNO_READ            : error mounting volume
-;            =ERRNO_WRITE           : error mounting volume
-;            =ERRNO_NO_FS           : error mounting volume
-;            =ERRNO_FS_INCONSISTENT : error mounting volume
+;            =ERRNO_NO_FS           : invalid volume
 ;-----------------------------------------------------------------------------
 fat32_alloc_context:
 	stz fat32_errno
 
 .if FAT32_VOLUMES > 1
 	tay ; volume
+	cmp #$ff
+	beq @valid_volume
+	cmp #FAT32_VOLUMES
+	bcc @valid_volume
+	lda #ERRNO_NO_FS
+	jmp set_errno
+@valid_volume:
 .endif
 	ldx #0
 @1:	lda contexts_inuse, x
@@ -611,28 +640,33 @@ fat32_alloc_context:
 	jmp set_errno
 
 @found_free:
-	lda #1
-	sta contexts_inuse, x
-
 .if FAT32_VOLUMES > 1
 	tya
 	sta volume_for_context, x
+
+	; A reused slot must not retain a closed file's old context image.
 	phx
-	cmp #$ff
-	sec
-	beq @2
-	clc
-	jsr set_volume
-@2:	pla
-	bcs @rts
-	jsr fat32_free_context
-	clc
-	rts
-.else
+	txa
+	asl
+	asl
+	asl
+	asl
+	asl
+	tax
+	lda #0
+	ldy #CONTEXT_SIZE
+@clear_context:
+	sta contexts, x
+	inx
+	dey
+	bne @clear_context
+	plx
+.endif
+
+	lda #1
+	sta contexts_inuse, x
 	txa
 	sec
-.endif
-@rts:
 	rts
 
 ;-----------------------------------------------------------------------------
@@ -651,6 +685,12 @@ fat32_free_context:
 	lda contexts_inuse, x
 	beq @fail
 	stz contexts_inuse, x
+	cpx context_idx
+	bne @done
+	lda #$ff
+	sta context_idx
+	clear_bytes cur_context, .sizeof(context)
+@done:
 	sec
 	rts
 
@@ -1174,6 +1214,140 @@ delete_file2:
 	jmp unlink_cluster_chain
 
 ;-----------------------------------------------------------------------------
+; fat32_card_check_alive
+;
+; Check physical card A without disturbing the controller or cache belonging
+; to the active FAT context.  A failed check invalidates the removed card's
+; mount state.  This is needed for the K2 internal microSD socket, which has no detect pin.
+;
+; In:  A = card/volume (0 or 1)
+; Out: C = 1 if the initialized card is still present, 0 otherwise
+;-----------------------------------------------------------------------------
+fat32_card_check_alive:
+	cmp #FAT32_VOLUMES
+	bcs @error
+	sta card_init_target
+	lda volume_idx
+	sta card_init_previous
+
+	lda card_init_target
+	jsr sdcard_select
+	bcc @error
+	jsr sdcard_check_alive
+	php
+	bcs @restore
+
+	; Do not let dirty data from a removed active card reach its replacement.
+	lda card_init_target
+	cmp volume_idx
+	bne @stored_volume
+	lda cur_context + context::flags
+	and #(FLAG_DIRTY ^ $ff)
+	sta cur_context + context::flags
+	stz cur_volume + fs::mounted
+	lda #$ff
+	sta sector_volume
+	bra @restore
+
+@stored_volume:
+	.assert FS_SIZE = 64, error
+	asl
+	asl
+	asl
+	asl
+	asl
+	asl
+	tax
+	stz volumes + fs::mounted,x
+
+@restore:
+	lda card_init_previous
+	cmp #FAT32_VOLUMES
+	bcs @done
+	jsr sdcard_select
+@done:
+	plp
+	rts
+
+@error:
+	clc
+	rts
+
+;-----------------------------------------------------------------------------
+; fat32_card_init
+;
+; Initialize physical card A without resetting contexts belonging to the
+; other card.  The active dirty buffer is flushed before temporarily changing
+; controllers.  If A is the active volume, its dirty cache is discarded: this
+; path is used after media removal, when writing it back would be unsafe.
+;
+; In:  A = card/volume (0 or 1)
+; Out: C = 1 on success, 0 on failure
+;-----------------------------------------------------------------------------
+fat32_card_init:
+	cmp #FAT32_VOLUMES
+	bcs @error
+	sta card_init_target
+	lda volume_idx
+	sta card_init_previous
+	cmp card_init_target
+	beq @discard_active
+	cmp #FAT32_VOLUMES
+	bcs @select
+	jsr sync_sector_buffer
+	bcc @error
+	bra @select
+
+@discard_active:
+	lda cur_context + context::flags
+	and #(FLAG_DIRTY ^ $ff)
+	sta cur_context + context::flags
+
+@select:
+	lda card_init_target
+	jsr sdcard_select
+	bcc @error
+	jsr sdcard_init
+	php
+
+	; Force a fresh mount for this card, whether initialization succeeded or
+	; failed.  A removed/replaced card must not inherit old filesystem data.
+	lda card_init_target
+	cmp volume_idx
+	bne @stored_volume
+	stz cur_volume + fs::mounted
+	bra @invalidate_cache
+
+@stored_volume:
+	.assert FS_SIZE = 64, error
+	asl
+	asl
+	asl
+	asl
+	asl
+	asl
+	tax
+	stz volumes + fs::mounted,x
+
+@invalidate_cache:
+	lda #$ff
+	sta sector_volume
+
+	; Restore the controller belonging to the active FAT context.
+	lda card_init_previous
+	cmp #FAT32_VOLUMES
+	bcs @done
+	jsr sdcard_select
+
+@done:
+	plp
+	rts
+
+@error:
+	clc
+	rts
+
+;-----------------------------------------------------------------------------
 ; fat32_init
 ;
 ; * c=0: failure; sets errno
@@ -1200,9 +1374,14 @@ fat32_init:
 
 	; No current volume
 	sta volume_idx
+	sta sector_volume
+	sta context_idx
 
 	; No time set up
 	sta fat32_time_year
+
+	; Name matching keeps this flag outside the FAT32 BSS range.
+	stz skip_mask
 
 	sec
 	rts
@@ -1210,12 +1389,12 @@ fat32_init:
 ;-----------------------------------------------------------------------------
 ; mount
 ;
-; In:  a  partition number (0+)
+; Each logical volume represents partition zero on one physical card.
 ;
 ; * c=0: failure; sets errno
 ;-----------------------------------------------------------------------------
 mount:
-	pha ; partition number
+	pha ; logical volume
 
 	jsr load_mbr_sector
 	pla
@@ -1223,7 +1402,8 @@ mount:
 @error:	clc
 	rts
 
-@2a:	asl ; *16
+@2a:	lda #0 ; partition zero on the selected card
+	asl ; *16
 	asl
 	asl
 	asl
@@ -1331,18 +1511,19 @@ mount:
 ;-----------------------------------------------------------------------------
 ; unmount
 ;
-; In:  a  partition number (0+)
+; Unmount the currently selected logical volume.
 ;
 ; * c=0: failure; sets errno
 ;-----------------------------------------------------------------------------
 unmount:
-	sec ; don't mount
-	jsr set_volume
 	; Set unmounted
 	stz cur_volume + fs::mounted
-	; No current volume
+	; Keep the volume selected so raw partition-table I/O used by mkfs still
+	; addresses the correct card.  Invalidate the cache and force set_volume to
+	; mount this volume again before normal filesystem access.
 	lda #$ff
-	sta volume_idx
+	sta sector_volume
+	sec
 	rts
 
 ;-----------------------------------------------------------------------------
@@ -1357,15 +1538,33 @@ unmount:
 fat32_set_context:
 	stz fat32_errno
 
-	; Already selected?
-	cmp context_idx
-	beq @done
-
 	; Valid context index?
 	cmp #FAT32_CONTEXTS
-	bcs @error
+	bcc :+
+	jmp @error
+:
+	tax
+	lda contexts_inuse, x
+	bne :+
+	jmp @error
+:
+	txa
+
+	; A freed/reused slot can keep the same context number while changing
+	; cards.  Re-select its volume even when the context number matches.
+	cmp context_idx
+	bne @switch_context
+	lda volume_for_context, x
+	cmp #$ff
+	beq @reload
+	clc
+	jsr set_volume
+	bcc @error
+	bra @reload
 
 .if ::FAT32_CONTEXTS > 1
+
+@switch_context:
 	; Save new context index
 	pha
 
@@ -1373,10 +1572,17 @@ fat32_set_context:
 	jsr sync_sector_buffer
 	bcc @error2
 
+	.assert CONTEXT_SIZE = 32, error
+
+	; There is no current context immediately after global initialization or
+	; after freeing the active slot.
+	lda context_idx
+	cmp #FAT32_CONTEXTS
+	bcs @load_new
+
 	; Put zero page variables in current context
 	set16 cur_context + context::bufptr, fat32_bufptr
 
-	.assert CONTEXT_SIZE = 32, error
 	; Copy current context back
 	lda context_idx   ; X=A*32
 	asl
@@ -1394,6 +1600,8 @@ fat32_set_context:
 	cpy #(.sizeof(context))
 	bne @1
 
+
+@load_new:
 	; Copy new context to current
 	pla              ; Get new context idx
 	sta context_idx  ; X=A*32
@@ -1424,6 +1632,8 @@ fat32_set_context:
 	bcc @error
 
 @no_volume:
+
+@reload:
 	; Reload sector
 	lda cur_context + context::flags
 	bit #FLAG_IN_USE

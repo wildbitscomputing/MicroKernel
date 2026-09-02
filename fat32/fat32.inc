@@ -8,7 +8,9 @@
 ;-----------------------------------------------------------------------------
 
 ; Global operations
-.global fat32_init              ; Initialize FAT32 driver and SD card
+.global fat32_init              ; Initialize shared FAT32 state
+.global fat32_card_init         ; Initialize physical SD card A (0 or 1)
+.global fat32_card_check_alive  ; Check whether physical SD card A is unchanged
 .global fat32_alloc_context     ; Allocate context, result in A if C set
 .global fat32_free_context      ; Free context in A, C set on success
 .global fat32_get_num_contexts  ; Get number of contexts currently in use
