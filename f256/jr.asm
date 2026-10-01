@@ -19,6 +19,8 @@ mmu_ctrl    .byte       ?
 io_ctrl     .byte       ?
 reserved    .fill       6
 mmu         .fill       8
+mmu_ext0_3  = $0002         ; per-edit-LUT RAM extension fields for slots 0-3
+mmu_ext4_7  = $0003         ; per-edit-LUT RAM extension fields for slots 4-7
 fat32       .fill       32  ; MMU LUT full-view.
             .dsection   dp
             .cerror * > $00ef, "Out of dp space."
@@ -86,14 +88,18 @@ irq_mmu     .byte       ?   ; mmu_ctrl when an IRQ fires.
 nmi_saved_sp  .byte     ?   ; victim SP at NMI (low byte; high is $01 in emu)
 nmi_saved_mmu .byte     ?   ; victim mmu_ctrl (active LUT) at NMI
 nmi_saved_io  .byte     ?   ; victim io_ctrl at NMI
-nmi_saved_slot5 .byte   ?   ; (unused since Task1) legacy LUT0 slot-5 save
+nmi_pending  .byte      ?   ; key break deferred until an IRQ in application code
 nmi_in_progress .byte   ?   ; non-zero while a handler is active (nested guard)
 nmi_entry_src .byte     ?   ; 0 = Foenix-key break, 1 = BRK (breakpoint/step)
 nmi_ptr       .word     ?   ; (unused since Task1) legacy header entry pointer
 nmi_orig_slot4 .byte    ?   ; victim LUT slot-4 bank displaced by the handler
 nmi_orig_slot5 .byte    ?   ; victim LUT slot-5 bank displaced by the handler
+nmi_orig_ext0_3 .byte   ?   ; victim LUT extension pair, updated by monitor
+nmi_orig_ext4_7 .byte   ?   ; victim LUT extension pair, updated by monitor
 nmi_save2     .byte     ?   ; LUT0 slot-2 saved during the flash->RAM copy
 nmi_save4     .byte     ?   ; LUT0 slot-4 saved during the flash->RAM copy
+nmi_save_ext0_3 .byte   ?   ; LUT0 extension pair saved during the copy
+nmi_save_ext4_7 .byte   ?   ; LUT0 extension pair saved during the copy
 nmi_src       .word     ?   ; flash->RAM copy source pointer
 nmi_dst       .word     ?   ; flash->RAM copy dest pointer
             .send
@@ -235,14 +241,14 @@ _zero   stz     Stack,x
         jsr     k2lcd.init
 
       ; Init the IRQs and enable
+      ; Clear break state first: dp RAM is uninitialized at power-on.
+        stz     nmi_in_progress
+        stz     nmi_pending
         jsr     irq.init
 
       ; Export a page pool -- merge with kernel start.
         lda     #>Buffers
         jsr     kernel.page.init
-
-      ; Clear the NMI nested-break guard (dp RAM is uninitialized at power-on).
-        stz     nmi_in_progress
 
       ; Start the kernel
         jmp     kernel.init
@@ -331,6 +337,18 @@ _nmi_gate_k2
         beq     _nmi_ours
         jmp     nmi_not_ours    ; Foenix not held -> ignore
 _nmi_ours
+      ; MON calls kernel services and borrows LUT slots/ZP. It cannot stop
+      ; inside those same services or LUT0 and then re-enter them. Keep the
+      ; request until a hardware IRQ finds an ordinary application context.
+        lda     nmi_saved_mmu
+        ldx     nmi_saved_sp
+        jsr     nmi_key_safe
+        bcc     nmi_key_enter
+        lda     #1
+        sta     nmi_pending
+        jmp     nmi_not_ours
+nmi_key_enter
+        stz     nmi_pending
         stz     nmi_entry_src   ; 0 = entered via Foenix key
       ; Decline a break INTO the monitor itself: it runs from reserved bank
       ; NMI_RAM_HI ($3f) in slot 5, so freezing it would clobber its own RAM
@@ -340,11 +358,15 @@ _nmi_ours
 nmi_selfguard:
         jsr     nmi_edit_vlut
         lda     mmu+5
-        stz     mmu_ctrl            ; active LUT0, edit off
         cmp     #NMI_RAM_HI
         bne     _nmi_notmon
+        lda     mmu_ext4_7
+        and     #$0c                ; slot 5 must also use extension zero
+        bne     _nmi_notmon
+        stz     mmu_ctrl            ; active LUT0, edit off
         jmp     nmi_not_ours
 _nmi_notmon
+        stz     mmu_ctrl            ; active LUT0, edit off
         lda     #1
         sta     nmi_in_progress
         lda     io_ctrl
@@ -356,6 +378,12 @@ _nmi_notmon
         sta     nmi_orig_slot4  ; victim's original $8000 bank
         lda     mmu+5
         sta     nmi_orig_slot5  ; victim's original $A000 bank
+        lda     mmu_ext0_3
+        sta     nmi_orig_ext0_3
+        lda     mmu_ext4_7
+        sta     nmi_orig_ext4_7
+        and     #$f0            ; MON pages $3e/$3f require EXT4=EXT5=0
+        sta     mmu_ext4_7
         stz     mmu_ctrl        ; active LUT0, edit off
 
       ; --- copy the 2 handler flash blocks -> RAM_LO/RAM_HI (16 KB) ---
@@ -366,6 +394,14 @@ _nmi_notmon
         sta     nmi_save2
         lda     mmu+4
         sta     nmi_save4
+        lda     mmu_ext0_3
+        sta     nmi_save_ext0_3
+        and     #$cf            ; LUT0 slot 2 flash/copy window: extension 0
+        sta     mmu_ext0_3
+        lda     mmu_ext4_7
+        sta     nmi_save_ext4_7
+        and     #$fc            ; LUT0 slot 4 RAM copy window: extension 0
+        sta     mmu_ext4_7
         stz     mmu_ctrl
       ; block 0: flash NMI_MON_BANK -> RAM_LO
         lda     #$80
@@ -376,18 +412,13 @@ _nmi_notmon
         sta     mmu+4
         stz     mmu_ctrl
         jsr     nmi_copy8k
-      ; poke the victim's slot-4 bank into the RAM image's reserved header byte
-      ; (offset 9); RAM_LO is mapped at LUT0 slot4 ($8000), so that is $8009.
-      ; Bank numbers are <= $3f, so bit 7 is free: set it when the entry was a
-      ; BRK (breakpoint/step) so the monitor can tell BRK from a Foenix break.
+      ; Poke the entry source, victim extension pair 4-7, and full slot-4 map
+      ; into copied-header bytes 7-9. RAM_LO is still at LUT0 slot4 ($8000).
         lda     nmi_entry_src
-        beq     _poke_key
+        sta     $8007
+        lda     nmi_orig_ext4_7
+        sta     $8008
         lda     nmi_orig_slot4
-        ora     #$80
-        bra     _poke_do
-_poke_key
-        lda     nmi_orig_slot4
-_poke_do
         sta     $8009
       ; block 1: flash NMI_MON_BANK+1 -> RAM_HI
         lda     #$80
@@ -405,6 +436,10 @@ _poke_do
         sta     mmu+2
         lda     nmi_save4
         sta     mmu+4
+        lda     nmi_save_ext0_3
+        sta     mmu_ext0_3
+        lda     nmi_save_ext4_7
+        sta     mmu_ext4_7
         stz     mmu_ctrl
 
       ; --- map the RAM handler into the VICTIM LUT slots 4+5 ---
@@ -419,9 +454,14 @@ _poke_do
         ldy     nmi_saved_sp    ; Y = victim SP
         ldx     nmi_orig_slot5  ; X = victim's original slot-5 bank
         lda     nmi_saved_mmu
+        and     #$03            ; active victim LUT, with its edit window closed
         sta     mmu_ctrl        ; active -> victim LUT
         jsr     $8100           ; do_entry_break; RTSs back (still victim LUT)
         stz     mmu_ctrl        ; active -> LUT0
+      ; MON returns the possibly edited victim extension pairs in X/A. Capture
+      ; them only after returning to LUT0, where the kernel direct page lives.
+        stx     nmi_orig_ext0_3
+        sta     nmi_orig_ext4_7
 
       ; --- restore the victim LUT slots 4+5 ---
         jsr     nmi_edit_vlut
@@ -429,6 +469,10 @@ _poke_do
         sta     mmu+4
         lda     nmi_orig_slot5
         sta     mmu+5
+        lda     nmi_orig_ext0_3
+        sta     mmu_ext0_3
+        lda     nmi_orig_ext4_7
+        sta     mmu_ext4_7
         stz     mmu_ctrl
 
       ; --- inject a Foenix-key RELEASE for the resumed program ---
@@ -480,6 +524,33 @@ nmi_resume
         plx
         pla
         rti
+
+      ; Called with LUT0 active, A=interrupted MMU control, X=frame SP below
+      ; saved Y/X/A/P/PCL/PCH. Preserve A/X; C clear means safe for key entry.
+      ; The shared $E000-$FFFF API/IRQ code can still be using the user's map
+      ; while a kernel operation is incomplete. Do not stop there either.
+      ; No stack operations while inspecting the other LUT's stack page.
+nmi_key_safe
+        pha
+      ; The ROM loader leaves EDIT enabled ($B3) for programs such as BASIC.
+      ; EDIT exposes registers; it does not mean a map update is in progress.
+      ; MON closes that window while running and restores the full byte on X.
+        and     #$0f           ; reject LUT0/flat mode, allow persistent EDIT
+        beq     _nks_unsafe
+        cmp     #4
+        bcs     _nks_unsafe
+        lda     kernel.thread.running
+        bne     _nks_unsafe
+        pla
+        sta     mmu_ctrl
+        ldy     $0106,x        ; interrupted PCH from the victim's stack
+        stz     mmu_ctrl
+        cpy     #$e0           ; C set: shared kernel/API region
+        rts
+_nks_unsafe
+        pla
+        sec
+        rts
 
       ; nmi_edit_vlut: set mmu_ctrl to EDIT the victim's LUT (from nmi_saved_mmu
       ; active-LUT bits), leaving active LUT = 0 (kernel) so our code/stack/dp
@@ -589,6 +660,20 @@ _hw_irq_norm
       ; Save MMU state and switch to the kernel's MMU table.
         lda     mmu_ctrl    ; Get the current mmu state.
         stz     mmu_ctrl    ; Switch to the kernel's mmu table.
+
+      ; A deferred key break uses this IRQ's already-saved register frame.
+      ; If still in kernel code, service the IRQ normally so execution can
+      ; make progress back to the application. No modifier re-test is needed:
+      ; the original NMI already validated/acknowledged the key.
+        ldy     nmi_in_progress
+        bne     hw_swi
+        ldy     nmi_pending
+        beq     hw_swi
+        jsr     nmi_key_safe
+        bcs     hw_swi
+        sta     nmi_saved_mmu
+        stx     nmi_saved_sp
+        jmp     nmi_key_enter
 
 hw_swi
         pha
