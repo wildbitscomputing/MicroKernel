@@ -1,5 +1,6 @@
 .global krn_ptr1, bank_save
 .global fat32_bufptr, fat32_lfn_bufptr, fat32_ptr, fat32_ptr2
+.global spi_ctrl_ptr, spi_data_ptr
 
 .segment "ZEROPAGE" : zeropage
 
@@ -18,3 +19,10 @@ fat32_ptr:
 	.res 2 ; word - Buffer pointer to various functions
 fat32_ptr2:
 	.res 2 ; word - Buffer pointer to various functions
+
+; Active slow-SPI controller.  K2 exposes the front card at $DD00/$DD01
+; and the internal microSD card at $DD20/$DD21.
+spi_ctrl_ptr:
+	.res 2
+spi_data_ptr:
+	.res 2

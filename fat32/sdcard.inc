@@ -7,6 +7,7 @@
 ; Functions
 ;-----------------------------------------------------------------------------
 .global sdcard_init
+.global sdcard_select
 .global sdcard_check_alive
 .global sdcard_read_sector
 .global sdcard_write_sector

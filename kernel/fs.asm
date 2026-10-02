@@ -41,7 +41,7 @@ entry       .namespace
             .virtual    Tokens
 index       .byte   ?   ; 0..(MAX_ENTRIES-1)
 driver      .byte   ?   ; offset to installed bus driver
-device      .byte   ?   ; per-driver device number (0 for SD, 8/9 for IEC)
+device      .byte   ?   ; per-driver device number (0/1 for SD, 8/9 for IEC)
 partition   .byte   ?   ; optional partition id
             .endv
             .endn

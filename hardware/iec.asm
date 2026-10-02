@@ -81,7 +81,8 @@ _loop       sta     channels,x
             sta     kernel.src+1
             jsr     kernel.device.install
 
-          ; Register two drives (A and B)
+          ; Register IEC devices 8 and 9 as kernel drives 2 and 3.  Drive 1
+          ; is reserved for the K2 internal microSD card.
             lda     #8
             jsr     register_drive
             lda     #9
@@ -141,6 +142,7 @@ register_drive
 
             sta     kernel.fs.entry.device,y
             and     #7
+            inc     a
             inc     a
             sta     kernel.fs.entry.index,y
             txa
@@ -210,13 +212,13 @@ _ready
         jsr     platform.iec.probe_device
         lda     #1
         adc     #0
-        sta     probed+1
+        sta     probed+2
 
         lda     #9
         jsr     platform.iec.probe_device
         lda     #1
         adc     #0
-        sta     probed+2
+        sta     probed+3
 
       ; Check again
         bra     _ready
@@ -1613,4 +1615,3 @@ _send
         .send
         .endn
         .endn
-
