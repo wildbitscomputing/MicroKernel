@@ -1218,7 +1218,7 @@ delete_file2:
 ;
 ; Check physical card A without disturbing the controller or cache belonging
 ; to the active FAT context.  A failed check invalidates the removed card's
-; mount state.  This is needed for the K2 internal microSD socket, which has no detect pin.
+; mount state.  This is needed for the K2/JR2 internal microSD socket, which has no detect pin.
 ;
 ; In:  A = card/volume (0 or 1)
 ; Out: C = 1 if the initialized card is still present, 0 otherwise
