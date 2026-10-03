@@ -668,7 +668,7 @@ Reads the next directory element (volume name entry, file entry, bytes-free entr
 
 * The first read will generally queue an **event.directory.VOLUME** event.  **event.directory.volume.len** will contain the length of the volume name. Call ReadData to retrieve the volume name.
 
-* Subsequent reads will generally queue an **event.directory.FILE** event.  **event.directory.file.len** will contain the length of the filename.  **ReadData** will retrieve the file name; **ReadExt** will retrieve the meta-data (presently just the sector count).
+* Subsequent reads will generally queue an **event.directory.FILE** event.  **event.directory.file.len** will contain the length of the filename.  **ReadData** will retrieve the file name; **ReadExt** retrieves the metadata described below, including the legacy block count and an exact byte size when available.
 
 * The last read before EOF will generally queue an **event.directory.FREE** event.  **event.directory.free.free** will contain the number of free sectors on the device.
 
@@ -681,6 +681,45 @@ Reads the next directory element (volume name entry, file entry, bytes-free entr
 * The IEC protocol does not support multiple concurrent directory reads.
 * Attempting to open files while reading an IEC directory have been known to result in directory read errors (cc65 errata).
 * SD2IEC devices cap the sectors-free report at 65535 sectors.
+
+#### Exact file sizes
+
+For a `directory.FILE` event, bit 7 of `event.directory.file.flags`
+(`kernel.event.directory.EXACT_SIZE`, `$80`) indicates that an exact byte size
+is available. FAT32 regular files set this bit, including empty files. FAT32
+attribute bits 0–5 retain their meanings. Directories and IEC directory entries
+do not set the bit; their exact byte size is unavailable, not necessarily zero.
+
+Call `ReadExt` with `kernel.args.recv.buflen = kernel.event.dir_ext_t.size` (10)
+to retrieve the following little-endian fields:
+
+| Offset | Length | Field | Meaning |
+| --- | --- | --- | --- |
+| 0 | 6 | `free` | Existing block-count prefix. For FAT32 file entries, this is the file length rounded up to 256-byte blocks. IEC reports its device's directory block count. |
+| 6 | 4 | `byte_size` | Exact unsigned byte length, valid only when `EXACT_SIZE` is set. |
+
+Existing clients can continue reading the block-count prefix. New clients must
+check `EXACT_SIZE` before using `byte_size`; an older kernel does not provide
+this extension, and data beyond its old metadata may be uninitialized. A missing
+flag must not be interpreted as an empty file. This extension applies only to
+`directory.FILE` events, not `VOLUME` or `FREE` events. It uses the existing
+extended-data buffer and requires no additional API call or kernel RAM allocation.
+
+```asm
+        lda event.directory.file.flags
+        and #kernel.event.directory.EXACT_SIZE
+        beq size_unavailable
+
+        lda #<details
+        sta kernel.args.recv.buf
+        lda #>details
+        sta kernel.args.recv.buf+1
+        lda #kernel.event.dir_ext_t.size
+        sta kernel.args.recv.buflen
+        jsr kernel.ReadExt
+        ; details.byte_size now holds the four-byte file length.
+        ; Define details with: .dstruct kernel.event.dir_ext_t
+```
 
 ### Directory.Close
 

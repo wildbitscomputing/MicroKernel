@@ -369,6 +369,7 @@ SEEK        .word   ?   ; The seek request has completed.
             .endn
 
 directory   .namespace
+EXACT_SIZE  = $80       ; FILE flags: dir_ext_t.byte_size is valid
 OPENED      .word   ?   ; The directory open request succeeded.
 VOLUME      .word   ?   ; A volume record was found.
 FILE        .word   ?   ; A file record was found.
@@ -481,16 +482,17 @@ dir_vol_t   .struct     ; ext contains disk id
 len         .byte   ?   ; Length of volname (in buf)
 flags       .byte   ?   ; block size, text encoding
             .ends
-dir_file_t  .struct     ; ext contains byte count and modified date
+dir_file_t  .struct     ; ext uses dir_ext_t
 len         .byte   ?
-flags       .byte   ?   ; block scale, text encoding, approx size
+flags       .byte   ?   ; FAT attributes (bits 0-5), directory.EXACT_SIZE (bit 7)
             .ends
 dir_free_t  .struct     ; ext contains byte count and modified date
 flags       .byte   ?   ; block scale, text encoding, approx size
             .ends
-dir_ext_t   .struct     ; Extended information; more to follow.
-free        .fill   6   ; blocks used/free
-            .ends
+dir_ext_t   .struct     ; All integers little-endian.
+free        .fill   6   ; legacy blocks used/free; FAT32 FILE units are 256 bytes
+byte_size   .dword  ?   ; exact FILE size, valid only with directory.EXACT_SIZE
+size        .ends
 
           ; Data in net events (major changes coming)
 udp_t       .struct
