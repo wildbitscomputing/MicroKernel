@@ -373,6 +373,7 @@ _nmi_notmon
         sta     nmi_in_progress
         lda     io_ctrl
         sta     nmi_saved_io
+        jsr     user_irq.suspend
 
       ; --- save the victim's original slot-4 and slot-5 banks ---
         jsr     nmi_edit_vlut   ; edit-enable the victim's LUT
@@ -511,6 +512,7 @@ _nmi_noinject
         lda     #$7f
         sta     VIA_IFR                 ; write 1s to clear all VIA flags
 _nmi_no_via
+        jsr     user_irq.resume
       ; fall into nmi_resume
 
       ; nmi_resume: restore victim io/LUT/SP/regs and RTI back exactly.

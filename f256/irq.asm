@@ -99,6 +99,9 @@ _loop       stz     irqs,x
             bpl     _loop
             plx
 
+          ; Initialize user callbacks before interrupts can arrive.
+            jsr     user_irq.init
+
           ; Enable IRQs
             cli
 
@@ -144,8 +147,11 @@ _dummy
 dispatch:
 
 _reg0
+          ; Service each registered timing-sensitive source once per pass.
+            jsr     user_irq.dispatch
             stz     $1
-            lda     INT_MASK_REG0
+            lda     user_irq.mask0
+            ora     INT_MASK_REG0
             eor     #$ff
             and     INT_PENDING_REG0
             beq     _reg1
@@ -160,7 +166,8 @@ _reg0
 
 _reg1
             stz     $1
-            lda     INT_MASK_REG1
+            lda     user_irq.mask1
+            ora     INT_MASK_REG1
             eor     #$ff
             and     INT_PENDING_REG1
             beq     _reg2
@@ -171,7 +178,7 @@ _reg1
             ldx     irq1,y
             ldy     #1      ; group for userland handlers.
             jsr     kernel.device.dev.data
-            bra     _reg1
+            bra     _reg0
 
 _reg2
     ; Ideally, we'd atomically check both PENDING registers
