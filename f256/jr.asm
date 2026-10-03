@@ -292,9 +292,10 @@ VIA_IFR      = $DC0D            ; 65C22 VIA Interrupt Flag Register
 VIA_IER      = $DC0E            ; 65C22 VIA Interrupt Enable Register
 
 NMI_MON_BANK = $4a              ; monitor flash block 0 ($40 + CSV 0a); block 1 = $4b
-NMI_RAM_LO   = $3e              ; reserved RAM bank -> victim slot 4 ($8000): image block 0
-NMI_RAM_HI   = $3f              ; reserved RAM bank -> victim slot 5 ($A000): image block 1
-NMI_MEMTEXT_LO = $3b            ; reserved RAM banks $3b-$3d: monitor MemText/state
+NMI_RAM_LO   = $3e              ; map $33e, physical $1fc000: image block 0
+NMI_RAM_HI   = $3f              ; map $33f, physical $1fe000: image block 1
+; MON reserves physical $1f4000-$1fffff (maps $33a-$33f): workspace,
+; MemText/state, and executable. These pages are unavailable to applications.
 MACHINE_ID_REG = $d6a7
 JR2_MID        = $22              ; $A2 on current JR2 cores, ignoring clock bits [7:6]
 JR2_SYSRQ_CTRL = $d6b6          ; bit 7: sticky SysRq NMI cause, W1C
@@ -361,7 +362,8 @@ nmi_selfguard:
         cmp     #NMI_RAM_HI
         bne     _nmi_notmon
         lda     mmu_ext4_7
-        and     #$0c                ; slot 5 must also use extension zero
+        and     #$0c                ; slot 5 must also use extension 3
+        cmp     #$0c
         bne     _nmi_notmon
         stz     mmu_ctrl            ; active LUT0, edit off
         jmp     nmi_not_ours
@@ -382,7 +384,7 @@ _nmi_notmon
         sta     nmi_orig_ext0_3
         lda     mmu_ext4_7
         sta     nmi_orig_ext4_7
-        and     #$f0            ; MON pages $3e/$3f require EXT4=EXT5=0
+        ora     #$0f            ; MON pages $3e/$3f require EXT4=EXT5=3
         sta     mmu_ext4_7
         stz     mmu_ctrl        ; active LUT0, edit off
 
@@ -400,7 +402,7 @@ _nmi_notmon
         sta     mmu_ext0_3
         lda     mmu_ext4_7
         sta     nmi_save_ext4_7
-        and     #$fc            ; LUT0 slot 4 RAM copy window: extension 0
+        ora     #$03            ; LUT0 slot 4 RAM copy window: extension 3
         sta     mmu_ext4_7
         stz     mmu_ctrl
       ; block 0: flash NMI_MON_BANK -> RAM_LO

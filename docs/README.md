@@ -73,7 +73,15 @@ $E000-$FFFF contains the kernel itself.  The kernel is considerably larger than 
 
 The F256 machines support four concurrent memory maps.  The kernel reserves map zero for itself, and map one for the Fat32 drivers; user programs are run from map three.  Map two is potentially reserved for a hypervisor.
 
-The kernel uses only two 8k blocks of RAM: block 6 (nominally at $C000), and block 7 (nominally at $E000).  Everything else is free for use by user software.
+The kernel uses two 8k blocks of RAM: block 6 (nominally at $C000), and block 7 (nominally at $E000).
+
+With Wildbits MON installed on the current 2 MiB cores, applications must also
+leave physical `$1F4000-$1FFFFF` unused: the last six 8 KiB pages (`$FA-$FF`,
+MMU maps `$33A-$33F`, extension 3). MON uses these for its workspace, MemText
+screen/color buffers, saved font and persistent state, and its 16 KiB RAM
+executable. This is a reservation by convention, not allocator enforcement.
+The old MON RAM allocation at `$076000-$07FFFF` is released. Update MON and
+the kernel together: the break dispatcher now copies MON into maps `$33E/$33F`.
 
 # Startup
 
