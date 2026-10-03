@@ -185,12 +185,15 @@ init
             lda     #0
             jsr     register_drive
 
-          ; K2 exposes a second compatible slow-SPI controller at $DD20.
+          ; K2 and JR2 expose a second slow-SPI controller at $DD20.
             stz     io_ctrl
             lda     $d6a7
             and     #$3f
-            cmp     #$11
+            cmp     #$11        ; K2
+            beq     _second
+            cmp     #platform.JR2_MID
             bne     _done
+_second
             lda     #1
             jsr     register_drive
 _done

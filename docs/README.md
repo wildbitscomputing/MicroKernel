@@ -397,7 +397,7 @@ Creates a new filesystem on the given device.
 
 **Input**
 
-* **kernel.args.fs.mkfs.drive** contains the device number (0 = front SD, 1 = K2 internal microSD, 2 = IEC #8, 3 = IEC #9)
+* **kernel.args.fs.mkfs.drive** contains the device number (0 = front SD, 1 = K2/JR2 internal microSD, 2 = IEC #8, 3 = IEC #9)
 * **kernel.args.fs.mkfs.label** points to a buffer containing the new drive label.
 * **kernel.args.fs.mkfs.label_len** contains the length of the label buffer (0=0).
 * **kernel.args.fs.mkfs.cookie** contains a user-provided cookie for matching against completion events.
@@ -424,7 +424,7 @@ Opens a file for read, append, or create/overwrite.  The file should not be conc
 
 **Input**
 
-* **kernel.args.file.open.drive** contains the drive ID (0 = front SD, 1 = K2 internal microSD, 2 = IEC #8, 3 = IEC #9). Drive 1 is not registered on machines without the internal microSD socket.
+* **kernel.args.file.open.drive** contains the drive ID (0 = front SD, 1 = K2/JR2 internal microSD, 2 = IEC #8, 3 = IEC #9). Drive 1 is not registered on machines without the internal microSD socket.
 * **kernel.args.file.open.fname** points to the name of the file.
 * **kernel.args.file.open.fname_len** contains the length of the name.
 * **kernel.args.file.open.mode** contains the access mode (0 = read, 1 = write, 2 = append).
@@ -445,7 +445,7 @@ Opens a file for read, append, or create/overwrite.  The file should not be conc
 
 * The kernel supports a maximum of 15 concurrently opened streams (including directories and rename/delete operations) across all devices.
 * The FAT32 driver supports 8 concurrent contexts shared by all SD cards.
-* The K2 internal microSD socket sits under the keyboard cable. It has no hardware write-protect input; microSD cards have no lock tab.
+* The K2 and JR2 both expose the internal microSD slot as drive 1. On the K2, the socket sits under the keyboard cable. The internal slot has no hardware write-protect input; microSD cards have no lock tab.
 * The IEC driver supports a maximum of 8 concurrently opened files (not counting directories and rename/delete operations) per device.
 * Fat32 preserves case when creating files, and uses case-insensitive matching when opening files.
 * The FAT32 library doesn't presently distinguish between file-not-found and a media/file-system error when opening a file.
@@ -564,7 +564,7 @@ Renames a file.  The file should not be in use.
 
 **Input**
 
-* **kernel.args.file.rename.drive** contains the drive ID (0 = front SD, 1 = K2 internal microSD, 2 = IEC #8, 3 = IEC #9)
+* **kernel.args.file.rename.drive** contains the drive ID (0 = front SD, 1 = K2/JR2 internal microSD, 2 = IEC #8, 3 = IEC #9)
 * **kernel.args.file.rename.cookie** contains a user supplied cookie for matching the completed event.
 * **kernel.args.file.rename.old** points to a file path containing the name of the file to rename.
 * **kernel.args.file.rename.old_len** contains the length of the path above.
@@ -596,7 +596,7 @@ Deletes a file.  The file should not be in use.
 
 **Input**
 
-* **kernel.args.file.delete.drive** contains the drive ID (0 = front SD, 1 = K2 internal microSD, 2 = IEC #8, 3 = IEC #9)
+* **kernel.args.file.delete.drive** contains the drive ID (0 = front SD, 1 = K2/JR2 internal microSD, 2 = IEC #8, 3 = IEC #9)
 * **kernel.args.file.delete.cookie** contains a user supplied cookie for matching the completed event.
 * **kernel.args.file.delete.fname** points to a file path containing the name of the file to delete.
 * **kernel.args.file.delete.fname_len** contains the length of the path above.
@@ -627,7 +627,7 @@ Opens a directory for reading.
 
 **Input**
 
-* **kernel.args.directory.open.drive** contains the device id (0 = front SD, 1 = K2 internal microSD, 2 = IEC #8, 3 = IEC #9).
+* **kernel.args.directory.open.drive** contains the device id (0 = front SD, 1 = K2/JR2 internal microSD, 2 = IEC #8, 3 = IEC #9).
 * **kernel.args.directory.open.path** points to a buffer containing the path.
 * **kernel.args.directory.open.lan_len** contains the length of the path above.  May be zero for the root directory.
 * **kernel.args.directory.open.cookie** contains a user-supplied cookie for matching the completed event.
@@ -704,7 +704,7 @@ Creates a sub-directory.
 
 **Input**
 
-* **kernel.args.directory.mkdir.drive** contains the device id (0 = front SD, 1 = K2 internal microSD, 2 = IEC #8, 3 = IEC #9).
+* **kernel.args.directory.mkdir.drive** contains the device id (0 = front SD, 1 = K2/JR2 internal microSD, 2 = IEC #8, 3 = IEC #9).
 * **kernel.args.directory.mkdir.path** points to a buffer containing the path.
 * **kernel.args.directory.mkdir.path_len** contains the length of the path above.  May be zero for the root directory.
 * **kernel.args.directory.mkdir.cookie** contains a user-supplied cookie for matching the completed event.
@@ -732,7 +732,7 @@ Deletes a sub-directory.
 
 **Input**
 
-* **kernel.args.directory.rmdir.drive** contains the device id (0 = front SD, 1 = K2 internal microSD, 2 = IEC #8, 3 = IEC #9).
+* **kernel.args.directory.rmdir.drive** contains the device id (0 = front SD, 1 = K2/JR2 internal microSD, 2 = IEC #8, 3 = IEC #9).
 * **kernel.args.directory.rmdir.path** points to a buffer containing the path.
 * **kernel.args.directory.rmdir.path_len** contains the length of the path above.  May be zero for the root directory.
 * **kernel.args.directory.rmdir.cookie** contains a user-supplied cookie for matching the completed event.

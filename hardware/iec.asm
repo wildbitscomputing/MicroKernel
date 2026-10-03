@@ -82,7 +82,7 @@ _loop       sta     channels,x
             jsr     kernel.device.install
 
           ; Register IEC devices 8 and 9 as kernel drives 2 and 3.  Drive 1
-          ; is reserved for the K2 internal microSD card.
+          ; is reserved for the K2/JR2 internal microSD card.
             lda     #8
             jsr     register_drive
             lda     #9

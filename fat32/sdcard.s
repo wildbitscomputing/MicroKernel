@@ -39,7 +39,7 @@ init_retries:      .res 2
 ;-----------------------------------------------------------------------------
 ; select physical card
 ;
-; In:  A = 0 for the front card, 1 for the K2 internal microSD card
+; In:  A = 0 for the front card, 1 for the K2/JR2 internal microSD card
 ; Out: C = 1 on success, 0 for an unsupported card
 ;-----------------------------------------------------------------------------
 sdcard_select:
