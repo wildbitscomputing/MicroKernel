@@ -6,6 +6,7 @@ always: jr.bin
 
 clean:
 	rm -f *.lst *.bin *.map *~ labels.txt
+	rm -f bin/3b.bin bin/3c.bin bin/3d.bin bin/3e.bin bin/3f.bin
 	rm -f kernel/*~ f256/*~ hardware/*~ docs/*~
 	(cd fat32; make clean)
 
@@ -85,6 +86,7 @@ jr.bin: Makefile $(Jr) $(KERNEL) fat32.bin
 	dd if=$@ of=3e.bin ibs=8192 obs=8192 skip=3 count=1
 	dd if=$@ of=3f.bin ibs=8192 obs=8192 skip=5 count=1
 	cat 3b.bin 3c.bin 3d.bin 3e.bin 3f.bin >$@
+	mkdir -p bin
 	cp 3b.bin 3c.bin 3d.bin 3e.bin 3f.bin bin
 
 
