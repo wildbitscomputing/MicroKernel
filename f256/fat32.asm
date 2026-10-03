@@ -949,78 +949,100 @@ _done       tya
 
 copy_details
 
-          ; Mount the source at dirent.attributes (name + $100)
+          ; Mount the source at dirent.attributes (name + $100).
             lda     fat.dirent+0
             sta     kernel.src+0
             lda     fat.dirent+1
-            inc     a               ; skip the 256-byte name
+            inc     a
             clc
-            adc     #$60            ; $2k there, $8k here.
+            adc     #$60            ; $2000 in the library, $8000 here
             sta     kernel.src+1
 
-          ; Mount the dest
+          ; Mount the event's extended-data page.
             stz     kernel.dest+0
             lda     kernel.event.entry.ext,y
             sta     kernel.dest+1
 
-          ; Map in fat32's RAM
-          ; Can't just do this globally b/c
-          ; the event queue needs access to user RAM.
-            lda     #7  ; fat32 ram block
+          ; Map FAT32's RAM, preserving the actual displaced mapping.
+            lda     mmu+4
+            pha
+            lda     mmu_ext4_7
+            pha
+            and     #$fc            ; slot 4 needs extension zero
+            sta     mmu_ext4_7
+            lda     #7
             sta     mmu+4
 
-          ; Read FAT32 attributes byte and store in event flags
+          ; Preserve FAT attributes; only regular files have an exact size.
             phy
             ldy     #0
-            lda     (kernel.src),y  ; dirent.attributes
+            lda     (kernel.src),y
+            and     #$3f            ; FAT reserves the upper two bits
+            bit     #$18            ; directories/volume labels have no byte length
+            bne     _attributes
+            ora     #kernel.event.directory.EXACT_SIZE
+_attributes
             ply
             sta     kernel.event.entry.directory.file.flags,y
 
-          ; Advance source to size field: skip attrs(1) + start(4)
-            lda     kernel.src+0
+          ; Skip attributes (1) and starting cluster (4) to the size field.
+            lda     kernel.src
             clc
             adc     #5
-            sta     kernel.src+0
+            sta     kernel.src
             bcc     +
             inc     kernel.src+1
 +
-          ; Round up the size
+            phx
+            lda     kernel.event.entry.directory.file.flags,y
             phy
-            ldy     #0
-            lda     #$ff
-_round      clc
-            adc     (kernel.src),y
-            sta     (kernel.src),y
-            lda     #0
-            rol     a
-            iny
-            cpy     #4
-            bne     _round
-            ply
+            and     #kernel.event.directory.EXACT_SIZE
+            beq     _blocks
 
-          ; Adjust the source pointer to block size
-            inc     kernel.src+0
-            bne     _copy
-            inc     kernel.src+1
-
-_copy
-            phy
+          ; Append the original byte count, without modifying FAT32's dirent.
+            lda     #kernel.event.dir_ext_t.byte_size
+            sta     kernel.dest
             ldy     #0
-_loop       lda     (kernel.src),y
+_exact      lda     (kernel.src),y
             sta     (kernel.dest),y
             iny
-            cpy     #3
-            bne     _loop
-            tya
+            cpy     #4
+            bne     _exact
+            stz     kernel.dest
+
+_blocks
+          ; Legacy count = ceil(byte_size / 256). Carry from the low byte
+          ; rounds the upper three bytes; retain overflow for files near 4 GiB.
+            ldy     #0
+            lda     (kernel.src),y
+            cmp     #1
+            iny
+            ldx     #3
+_round      lda     (kernel.src),y
+            adc     #0
+            dey
+            sta     (kernel.dest),y
+            iny
+            iny
+            dex
+            bne     _round
+            lda     #0
+            adc     #0
+            dey
+            sta     (kernel.dest),y
+            lda     #0
+            iny
+            sta     (kernel.dest),y
+            iny
+            sta     (kernel.dest),y
             ply
+            plx
 
-          ; Restore the map
-            pha
-            lda     mmu+5
-            dec     a
-            sta     mmu+4
+          ; Restore the mapping, including all extension fields.
             pla
-
+            sta     mmu_ext4_7
+            pla
+            sta     mmu+4
             rts
 
 mount_buf

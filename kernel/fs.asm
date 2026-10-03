@@ -337,6 +337,18 @@ read
             bcs     _free  ; event.free frees the page in args.buf
             sta     args.ext,y
 
+          ; Reused pages contain old data. Initialize the directory metadata
+          ; prefix, including the optional exact size, for every driver.
+            sta     kernel.dest+1
+            stz     kernel.dest
+            phy
+            ldy     #kernel.event.dir_ext_t.size-1
+            lda     #0
+_zero_ext   sta     (kernel.dest),y
+            dey
+            bpl     _zero_ext
+            ply
+
           ; Dispatch
             lda     kernel.stream.entry.driver,x
             tax
