@@ -98,3 +98,9 @@ fat32.bin: $(FAT32_SRC)
 
 run: jr.bin
 	foenixmgr binary jr.bin --address 0x10000
+
+PYTHON ?= python3
+
+.PHONY: test
+test: jr.bin
+	$(PYTHON) -m unittest discover -s tests -v
