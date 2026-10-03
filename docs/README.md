@@ -25,12 +25,16 @@ There's a lot of love in here; I hope you will enjoy using it as much as I have 
 
 ### Getting the Kernel
 
-Kernel binaries may be optained from either of the following repos:
+Kernel binaries are generated locally and are not tracked in this repository.
+Install GNU Make, 64tass, and the cc65 toolchain (`ca65` and `ld65`), then run:
 
-*  https://github.com/ghackwrench/F256_MicroKernel
-*  https://github.com/FoenixRetro
+```sh
+make jr.bin
+```
 
-The 'ghackwrench' repo contains the latest release.  The 'FoenixRetro' repo contains the most recently collected set of flash blocks.
+This produces the combined 40 KiB `jr.bin` image and five 8 KiB bank images in
+`bin/`: `3b.bin` through `3f.bin`. The build creates that directory as needed.
+`make clean` removes the generated images, including the copies in `bin/`.
 
 ### Flashing the Kernel
 
