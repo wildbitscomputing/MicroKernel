@@ -222,6 +222,9 @@ the interrupt controller's pending bits instead of using the IRQ Events
 feature.
 
 
+For immediate raster or VIA callbacks, see [Direct IRQ handlers](user-irq.md).
+These callbacks run during interrupt dispatch instead of generating IRQ events.
+
 #### Unsolicited Events
 
 **event.key.PRESSED**<br>
@@ -1056,26 +1059,29 @@ Copies the user provided text buffer to the screen (from left to right) starting
 **Notes**
 * Probably isn't yet checking the coordinate bounds or clipping.
 
-### Display.DrawColumn
+## IRQ Calls
 
-Copies the user provided text buffer to the screen (from top to bottom) starting at the provided coordinates and using the provided color buffer.
+### IRQ.Control
+
+Registers or unregisters a direct raster or VIA interrupt handler. This call at
+`$FFD8` replaces the unimplemented `Display.DrawColumn`; other API addresses
+are unchanged.
 
 **Input**
 
-* **kernel.args.display.x** contains the starting x coordinate.
-* **kernel.args.display.y** contains the starting y coordinate.
-* **kernel.args.display.text** points to the text data.
-* **kernel.args.display.color** points to the color data.
-* **kernel.args.buflen** contains the length of the buffer.
+* **kernel.args.irq.operation** is `kernel.IRQ.REGISTER` (0) or `kernel.IRQ.UNREGISTER` (1).
+* **kernel.args.irq.source** is `kernel.IRQ.RASTER` (1) or `kernel.IRQ.VIA` (13).
+* Registration also requires **bank**, **extension**, and **handler** in `kernel.args.irq`.
 
 **Output**
 
-* Carry cleared on success.
-* Carry set on error (x/y outside of the screen)
+* Carry clear and A=0 on success.
+* Carry set and A=`kernel.IRQ.INVALID`, `BUSY`, or `NOT_REGISTERED` on failure.
+* X and Y are preserved.
 
-**Notes**
-
-* _Not yet implemented._
+See [Direct IRQ handlers](user-irq.md) for the argument layout, callback rules,
+error meanings, and an example. Older kernels return carry set from the former
+`DrawColumn` stub, with no defined error code in A.
 
 ## Clock Calls
 

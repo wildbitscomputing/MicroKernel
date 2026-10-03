@@ -62,7 +62,7 @@ MkDir       .fill   4   ; Create a directory
 RmDir       .fill   4   ; Delete a directory
             .endn
 
-            .fill   4   ; call gate
+            .fill   4   ; Reserved internal call gate.
 
 Net         .namespace  ; These are changing!
 GetIP       .fill   4   ; Get the local IP address.
@@ -93,7 +93,17 @@ Display     .namespace
 Reset       .fill   4   ; Re-init the display
 GetSize     .fill   4   ; Returns rows/cols in kernel args.
 DrawRow     .fill   4   ; Draw text/color buffers left-to-right
-DrawColumn  .fill   4   ; Draw text/color buffers top-to-bottom
+            .endn
+
+IRQ         .namespace
+Control     .fill   4   ; Register/unregister a direct interrupt handler.
+REGISTER    = 0
+UNREGISTER  = 1
+RASTER      = 1
+VIA         = 13
+INVALID     = 1
+BUSY        = 2
+NOT_REGISTERED = 3
             .endn
 
 Clock       .namespace
@@ -127,6 +137,7 @@ display     .dstruct    display_t
 net         .dstruct    net_t
 config      .dstruct    config_t
 timer       .dstruct    timer_t
+irq         .dstruct    irq_args_t
             .endu
 
 ext         = $f8
@@ -134,6 +145,14 @@ extlen      = $fa
 buf         = $fb
 buflen      = $fd
 ptr         = $fe
+            .ends
+
+irq_args_t  .struct
+operation   .byte       ?   ; IRQ.REGISTER or IRQ.UNREGISTER
+source      .byte       ?   ; IRQ.RASTER or IRQ.VIA
+bank        .byte       ?   ; MMU bank byte for the resident handler
+extension   .byte       ?   ; RAM extension selector, 0..3
+handler     .word       ?   ; Entry within $A000-$BFFF
             .ends
 
           ; Event calls

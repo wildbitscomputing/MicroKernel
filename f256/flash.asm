@@ -64,6 +64,9 @@ start_rom
     ; X = ROM to start
     ; NOTE: uses kernel slot 2
 
+          ; No callbacks may survive replacement of application memory.
+            jsr     user_irq.clear
+
           ; Enable mmu editing
             lda     #$80
             sta     mmu_ctrl
@@ -108,6 +111,7 @@ start_rom
             jsr     _start          ; user returns here.
             stz     mmu_ctrl        ; restore the kernel map
             stz     io_ctrl
+            jsr     user_irq.clear
             jmp     kernel.start_flash
 
 _start

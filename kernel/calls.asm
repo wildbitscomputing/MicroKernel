@@ -81,7 +81,8 @@ call_gate   .mkcall kernel.gate
             .mkapi  Display.Reset
             .mkcall kernel.screen_size
             .mkcall kernel.draw_text
-            .mkapi  Display.DrawColumn
+            .cerror * != kernel.IRQ.Control, "IRQ.Control vector moved"
+            .mkapi  IRQ.Control
 
             .mkcall kernel.get_time
             .mkapi  Clock.SetTime
@@ -184,7 +185,10 @@ Display     .namespace
 Reset       .word   platform.console.init
 GetSize     .word   kernel.screen_size
 DrawRow     .word   kernel.draw_text
-DrawColumn  .word   dummy
+            .endn
+
+IRQ         .namespace
+Control     .word   user_irq.control
             .endn
 
 Clock       .namespace
@@ -195,6 +199,9 @@ SetTimer    .word   kernel.set_timer
             .endn
 
             .ends
+            .cerror kernel.IRQ.Control != $ffd8, "IRQ.Control ABI address changed"
+            .cerror kernel.Clock.GetTime != $ffdc, "Clock API moved"
+            .cerror kernel.Clock.SetTimer != $fff0, "Clock timer API moved"
 gate
         phx     ; on their stack
 
