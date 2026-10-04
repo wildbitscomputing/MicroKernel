@@ -69,6 +69,51 @@ class MonitorMemoryTests(unittest.TestCase):
                     self.run_to(0x2345)
                 self.assertEqual(self.mem.extensions[3][1], extension << 2)
 
+    def test_private_kernel_hooks_are_isolated_and_restored_in_every_lut(self):
+        for edit_extension in (False, True):
+            with self.subTest(edit_extension=edit_extension):
+                self.setUp()
+                # Each LUT has a different RAM kernel with an application IRQ
+                # vector. Leave the break dispatcher and return path intact.
+                for lut in range(4):
+                    bank = 8 + lut
+                    self.mem.maps[lut][7] = bank
+                    self.mem.extensions[lut][1] = lut << 6
+                    page = self.mem.ram[bank + 64 * lut]
+                    page[:] = self.mem.flash[0x7f]
+                    page[0x1ffe:0x2000] = bytes((lut, 0x22))
+                maps = deepcopy(self.mem.maps)
+                extensions = deepcopy(self.mem.extensions)
+                if edit_extension:
+                    # MON may change the victim's slot-7 extension. The new
+                    # page must also contain an intact kernel return path.
+                    self.mem.ram[11 + 64 * 2][:] = self.mem.ram[11 + 64 * 3]
+                    extensions[3][1] = 0x80
+                    stub = bytes.fromhex('a9 b3 85 00 a6 02 a9 80 60')
+                    self.mem.flash[0x4a][0x100:0x100 + len(stub)] = stub
+
+                self.cpu.a, self.cpu.x, self.cpu.y = 0x51, 0x82, 0x97
+                self.cpu.nmi()
+                self.run_to(0x8100)
+                self.assertEqual(self.mem.ram[0xfe][6], 11)
+                saved_ctrl = self.mem.ctrl
+                for lut in range(4):
+                    self.assertEqual(self.mem.maps[lut][7], 0x7f)
+                    self.assertEqual(self.mem.extensions[lut][1] & 0xc0, 0)
+                    self.mem.ctrl = lut
+                    self.assertEqual(
+                        bytes(self.mem[a] for a in (0xfffe, 0xffff)),
+                        self.mem.flash[0x7f][0x1ffe:0x2000],
+                    )
+                self.mem.ctrl = saved_ctrl
+
+                self.run_to(0x2345)
+                self.assertEqual(self.mem.maps, maps)
+                self.assertEqual(self.mem.extensions, extensions)
+                self.assertEqual(self.mem.ctrl, 0xb3)
+                self.assertEqual((self.cpu.a, self.cpu.x, self.cpu.y, self.cpu.sp),
+                                 (0x51, 0x82, 0x97, 0xef))
+
 
 if __name__ == '__main__':
     unittest.main()
