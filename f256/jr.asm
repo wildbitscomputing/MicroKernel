@@ -94,6 +94,7 @@ nmi_entry_src .byte     ?   ; 0 = Foenix-key break, 1 = BRK (breakpoint/step)
 nmi_ptr       .word     ?   ; (unused since Task1) legacy header entry pointer
 nmi_orig_slot4 .byte    ?   ; victim LUT slot-4 bank displaced by the handler
 nmi_orig_slot5 .byte    ?   ; victim LUT slot-5 bank displaced by the handler
+nmi_orig_slot7 .byte    ?   ; victim's private kernel/API page
 nmi_orig_ext0_3 .byte   ?   ; victim LUT extension pair, updated by monitor
 nmi_orig_ext4_7 .byte   ?   ; victim LUT extension pair, updated by monitor
 nmi_save2     .byte     ?   ; LUT0 slot-2 saved during the flash->RAM copy
@@ -102,6 +103,70 @@ nmi_save_ext0_3 .byte   ?   ; LUT0 extension pair saved during the copy
 nmi_save_ext4_7 .byte   ?   ; LUT0 extension pair saved during the copy
 nmi_src       .word     ?   ; flash->RAM copy source pointer
 nmi_dst       .word     ?   ; flash->RAM copy dest pointer
+            .send
+
+            .section kmem
+nmi_kernel_maps .fill 4     ; original slot-7 raw map, one per LUT
+nmi_kernel_exts .fill 4     ; original slot-7 extension field (bits 6/7)
+            .send
+
+            .section kernel
+; Run outside slot 7 while replacing it, including LUT0's own mapping.
+; Applications may patch IRQ/API entries in a copy of this kernel, but must
+; leave the break dispatcher and its return path intact.
+nmi_kernel_open
+        ldx     #3
+_nko_loop
+        txa
+        asl     a
+        asl     a
+        asl     a
+        asl     a
+        ora     #$80
+        sta     mmu_ctrl
+        lda     mmu+7
+        sta     nmi_kernel_maps,x
+        lda     mmu_ext4_7
+        and     #$c0
+        sta     nmi_kernel_exts,x
+        lda     #$7f
+        sta     mmu+7
+        lda     mmu_ext4_7
+        and     #$3f
+        sta     mmu_ext4_7
+        dex
+        bpl     _nko_loop
+        stz     mmu_ctrl
+        rts
+
+nmi_kernel_close
+        ; Honor an extension edit in MON's victim view, without applying it
+        ; to any other LUT. Other slots' fields have already been restored.
+        lda     nmi_saved_mmu
+        and     #3
+        tax
+        lda     nmi_orig_ext4_7
+        and     #$c0
+        sta     nmi_kernel_exts,x
+        ldx     #3
+_nkc_loop
+        txa
+        asl     a
+        asl     a
+        asl     a
+        asl     a
+        ora     #$80
+        sta     mmu_ctrl
+        lda     nmi_kernel_maps,x
+        sta     mmu+7
+        lda     mmu_ext4_7
+        and     #$3f
+        ora     nmi_kernel_exts,x
+        sta     mmu_ext4_7
+        dex
+        bpl     _nkc_loop
+        stz     mmu_ctrl
+        rts
             .send
 
             .section    startup     ; The following is ALWAYS at $E000
@@ -373,7 +438,6 @@ _nmi_notmon
         sta     nmi_in_progress
         lda     io_ctrl
         sta     nmi_saved_io
-        jsr     user_irq.suspend
 
       ; --- save the victim's original slot-4 and slot-5 banks ---
         jsr     nmi_edit_vlut   ; edit-enable the victim's LUT
@@ -381,6 +445,8 @@ _nmi_notmon
         sta     nmi_orig_slot4  ; victim's original $8000 bank
         lda     mmu+5
         sta     nmi_orig_slot5  ; victim's original $A000 bank
+        lda     mmu+7
+        sta     nmi_orig_slot7
         lda     mmu_ext0_3
         sta     nmi_orig_ext0_3
         lda     mmu_ext4_7
@@ -388,6 +454,8 @@ _nmi_notmon
         ora     #$0f            ; MON pages $3e/$3f require EXT4=EXT5=3
         sta     mmu_ext4_7
         stz     mmu_ctrl        ; active LUT0, edit off
+        jsr     nmi_kernel_open ; exclude application IRQ/API patches in all LUTs
+        jsr     user_irq.suspend
 
       ; --- copy the 2 handler flash blocks -> RAM_LO/RAM_HI (16 KB) ---
       ; LUT0 slot2 ($4000) = flash source, slot4 ($8000) = RAM dest window.
@@ -415,8 +483,11 @@ _nmi_notmon
         sta     mmu+4
         stz     mmu_ctrl
         jsr     nmi_copy8k
-      ; Poke the entry source, victim extension pair 4-7, and full slot-4 map
-      ; into copied-header bytes 7-9. RAM_LO is still at LUT0 slot4 ($8000).
+      ; Copied-header bytes 6-9 carry slot 7, entry source, EXT4-7, slot 4.
+      ; Byte 6 is only the format version in the original flash header.
+      ; RAM_LO is still at LUT0 slot4 ($8000).
+        lda     nmi_orig_slot7
+        sta     $8006
         lda     nmi_entry_src
         sta     $8007
         lda     nmi_orig_ext4_7
@@ -475,6 +546,7 @@ _nmi_notmon
         lda     nmi_orig_ext0_3
         sta     mmu_ext0_3
         lda     nmi_orig_ext4_7
+        and     #$3f            ; keep the standard kernel until cleanup finishes
         sta     mmu_ext4_7
         stz     mmu_ctrl
 
@@ -513,6 +585,7 @@ _nmi_noinject
         sta     VIA_IFR                 ; write 1s to clear all VIA flags
 _nmi_no_via
         jsr     user_irq.resume
+        jsr     nmi_kernel_close
       ; fall into nmi_resume
 
       ; nmi_resume: restore victim io/LUT/SP/regs and RTI back exactly.

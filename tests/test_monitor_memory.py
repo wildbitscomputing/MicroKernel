@@ -37,10 +37,11 @@ class MonitorMemoryTests(unittest.TestCase):
         self.cpu.nmi()
         self.run_to(0x8100)
         self.assertEqual(self.mem.maps[3][4:6], [0x3e, 0x3f])
-        self.assertEqual(self.mem.extensions[3][1], 0x6f)
+        self.assertEqual(self.mem.extensions[3][1], 0x2f)  # slot 7 isolated
+        self.assertEqual([lut[7] for lut in self.mem.maps], [0x7f] * 4)
         # The copied header contains the victim's source/map context.
-        self.assertEqual(self.mem.ram[0xfe][:7], self.mem.flash[0x4a][:7])
-        self.assertEqual(self.mem.ram[0xfe][7:10], b'\x00\x65\x14')
+        self.assertEqual(self.mem.ram[0xfe][:6], self.mem.flash[0x4a][:6])
+        self.assertEqual(self.mem.ram[0xfe][6:10], b'\x7f\x00\x65\x14')
         self.assertEqual(self.mem.ram[0xfe][10:], self.mem.flash[0x4a][10:])
         self.assertEqual(self.mem.ram[0xff], self.mem.flash[0x4b])
         for bank in (0x3e, 0x3f):
