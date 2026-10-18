@@ -87,6 +87,15 @@ executable. This is a reservation by convention, not allocator enforcement.
 The old MON RAM allocation at `$076000-$07FFFF` is released. Update MON and
 the kernel together: the break dispatcher now copies MON into maps `$33E/$33F`.
 
+While MON is active, the break dispatcher temporarily maps the standard flash
+kernel (`$07F`) into slot 7 in all four LUTs. This isolates MON from application
+IRQ/API hooks in a RAM copy of the kernel (for example Ultima III's music IRQ).
+Original slot-7 maps/extensions are saved per LUT and restored on resume;
+MON still inspects the application's original page. Byte 6 of MON's copied
+header carries the application's original slot-7 map, not a format version.
+Both MON and the kernel must implement this handoff. The application must
+leave the copied break dispatcher/return path and other kernel code/data intact.
+
 # Startup
 
 On power-on or reset, the kernel initializes the hardware according to the DIP switches and then searches various memory regions for the first program to run.  If DIP1 is on, it first checks RAM blocks 1-5 for a pre-loaded binary.  After that, it searches the expansion RAM/ROM blocks, and, finally, the on-board flash blocks. The first block found with a valid header will be mapped into MMU 3 and started.  The header must appear at the very start of the block and contains the following fields:
