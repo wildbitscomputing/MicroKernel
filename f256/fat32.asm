@@ -406,8 +406,18 @@ open
         call    fat.set_ptr
         lda     #0 ; TODO: code placement!??!
         call    fat.file_open
-        bcc     _context    ; TODO: error vs not-found
+        bcs     _opened
 
+      ; Preserve the library's distinction before freeing its context.
+      ; See ERRNO_FILE_NOT_FOUND in fat32/regs.inc. Other failures (media,
+      ; I/O, resources) must never be reported as a missing file.
+        call    fat.get_error
+        cmp     #5
+        bne     _context
+        lda     #kernel.event.file.NOT_FOUND
+        bra     _cleanup
+
+_opened
       ; This is a read stream
         lda     #kernel.stream.entry.READ
         sta     kernel.stream.entry.status,x
@@ -424,12 +434,20 @@ open
         bra     _send
 
 _context
+        lda     #kernel.event.file.ERROR
+_cleanup
+        pha
         lda     kernel.stream.entry.channel,x
         call    fat.ctx_free
+        pla
+        bra     _free
 _err
+        lda     #kernel.event.file.ERROR
+_free
+        pha
         txa
         jsr     kernel.stream.free
-        lda     #kernel.event.file.ERROR
+        pla
 _send
         clc
         sta     kernel.event.entry.type,y
@@ -849,8 +867,16 @@ read_dirent
 
           ; Read the next entry
             call    fat.dir_read
-            bcc     _free
+            bcs     _entry
 
+          ; Only a clean end-of-directory may become FREE/EOF. Inspect
+          ; errno before treating a failed read as directory exhaustion.
+            call    fat.get_error
+            cmp     #0          ; call restores X/Y and changes N/Z
+            bne     _err
+            bra     _free
+
+_entry
             jsr     copy_name
             jsr     copy_details
 
